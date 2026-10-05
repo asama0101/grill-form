@@ -215,7 +215,8 @@ button.clear { font-size: 13px; padding: 2px 12px; margin: 2px 0 4px; color: var
   }
 
   function build() {
-    var head = '---\nsession: ' + data.session + '\nround: ' + data.round + '\n---\n';
+    // 最終確認は round ではなく final（版番号）として書き、ラウンドの回答と区別する
+    var head = '---\nsession: ' + data.session + '\n' + (data.mode === 'final' ? 'final: ' : 'round: ') + data.round + '\n---\n';
     if (data.mode === 'final') {
       var a = approveGet();
       if (!a.verdict) return { error: '「承認」か「修正あり」を選んでください。' };
