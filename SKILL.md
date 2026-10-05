@@ -1,10 +1,10 @@
 ---
-name: grilling-html
-description: grilling（質問攻めで合意を作る手法）を HTML のフォームで行い、候補選択・自由入力・保留で内容を詰めて、最後に SPEC 形式で結果を出す。ユーザーが「HTML で grilling」「grilling-html」と明示したときだけ使う。単に「grill して」と頼まれただけのときは使わない。
-allowed-tools: Bash(python ${CLAUDE_SKILL_DIR}/grilling_html.py *) Bash(python "${CLAUDE_SKILL_DIR}/grilling_html.py" *) Bash(python3 ${CLAUDE_SKILL_DIR}/grilling_html.py *) Bash(python3 "${CLAUDE_SKILL_DIR}/grilling_html.py" *)
+name: roundtable
+description: grilling（質問攻めで合意を作る手法）を HTML のフォームで行い、候補選択・自由入力・保留で内容を詰めて、最後に SPEC 形式で結果を出す。ユーザーが「HTML で grilling」「roundtable」と明示したときだけ使う。単に「grill して」と頼まれただけのときは使わない。
+allowed-tools: Bash(python ${CLAUDE_SKILL_DIR}/roundtable.py *) Bash(python "${CLAUDE_SKILL_DIR}/roundtable.py" *) Bash(python3 ${CLAUDE_SKILL_DIR}/roundtable.py *) Bash(python3 "${CLAUDE_SKILL_DIR}/roundtable.py" *)
 ---
 
-# grilling-html
+# roundtable
 
 計画や設計について、ユーザーに質問をラウンド単位で重ねて合意を作る（grilling）。質問と回答は HTML フォームでやり取りし、合意内容を SPEC にまとめる。以下の `python` は、環境に `python` コマンドがなければ `python3` に読み替える。
 
@@ -18,16 +18,16 @@ allowed-tools: Bash(python ${CLAUDE_SKILL_DIR}/grilling_html.py *) Bash(python "
 - 質問 ID（`Q1`, `Q2`…）はセッション通しで一意にする（ラウンドでリセットしない）。
 
 ## 手順
-1. セッション作成: `python "${CLAUDE_SKILL_DIR}/grilling_html.py" init --theme "<テーマ>"` を実行する。テーマは ASCII の短い名前にする（Windows の Git Bash 経由の日本語引数は文字化けするため。例: `grilling-html`）。出力された絶対パス（以下 `<D>`）を控える。セッションのフォルダは `<親>/<日時>_grilling_<テーマ>/` にできる。親は `--parent` > 環境変数 `GRILLING_HTML_DIR` > `<カレント>/.grilling` の順で決まる。
-2. 質問 JSON を書く。置き場所はスクラッチパッド（なければ `<D>`）。形式は `grilling_html.py` の docstring を参照（`title`, `intro`, `questions[]` = `id`, `title`, `body`, `multi`, `options[]` = `key`, `label`, `desc`、`recommended[]`, `reason`）。
-3. 生成: `python "${CLAUDE_SKILL_DIR}/grilling_html.py" render --session-dir "<D>" --round <N> --input <json>` → `<D>/round-N.html`。
+1. セッション作成: `python "${CLAUDE_SKILL_DIR}/roundtable.py" init --theme "<テーマ>"` を実行する。テーマは ASCII の短い名前にする（Windows の Git Bash 経由の日本語引数は文字化けするため。例: `api-design`）。出力された絶対パス（以下 `<D>`）を控える。セッションのフォルダは `<親>/<日時>_roundtable_<テーマ>/` にできる。親は `--parent` > 環境変数 `ROUNDTABLE_DIR` > `<カレント>/.roundtable` の順で決まる。
+2. 質問 JSON を書く。置き場所はスクラッチパッド（なければ `<D>`）。形式は `roundtable.py` の docstring を参照（`title`, `intro`, `questions[]` = `id`, `title`, `body`, `multi`, `options[]` = `key`, `label`, `desc`、`recommended[]`, `reason`）。
+3. 生成: `python "${CLAUDE_SKILL_DIR}/roundtable.py" render --session-dir "<D>" --round <N> --input <json>` → `<D>/round-N.html`。
 4. Playwright MCP で `browser_navigate` により `file://` URL を開く（Windows は `file:///C:/.../round-N.html` のようにスラッシュ区切りにする。macOS/Linux は `file:///home/.../round-N.html`）。ユーザーに「回答して『送信』を押し、ターミナルに『完了』と入力してください」と伝えて待つ。
 5. 「完了」を受けたら、`browser_evaluate` で `() => ({ submitted: window.__submitted, md: window.__answersMd })` を実行する。
    - `submitted` が true なら、`md` をそのまま `<D>/round-N.answers.md` に書く（Write）。
    - false（未送信・ウィンドウを閉じた等）なら、書かずに続行方法を聞く。コピーボタンで Markdown を貼ってもらう手もある。
 6. 回答を読んで design tree を更新し、次のラウンド（手順2〜）へ。ラウンドごとに新しい HTML を生成する。
 7. frontier が空になったら、合意内容を SPEC 案（概要・流れ・受入条件・非目標・リスク・決定ログ）にまとめ、`{"title","intro","summary"}` の JSON で `render --final --round <N+1>` を実行して `final.html` を開く。回答は同様に `<D>/final.answers.md` に書く。
-8. `承認` なら、SPEC の保存先と形式をユーザーに提案する（承認なしではセッションフォルダの外に書かない）。保存したら `<D>/final-summary.md` にも要点を残し、`python "${CLAUDE_SKILL_DIR}/grilling_html.py" index --session-dir "<D>"` で `index.md` を更新する。`修正あり` ならコメントを反映して手順7を繰り返す。
+8. `承認` なら、SPEC の保存先と形式をユーザーに提案する（承認なしではセッションフォルダの外に書かない）。保存したら `<D>/final-summary.md` にも要点を残し、`python "${CLAUDE_SKILL_DIR}/roundtable.py" index --session-dir "<D>"` で `index.md` を更新する。`修正あり` ならコメントを反映して手順7を繰り返す。
 
 ## 回答 Markdown の書式（ページ側が生成する）
 ```
@@ -48,4 +48,4 @@ round: <N>
 - JS の `alert/confirm/prompt` は使わない（ブラウザ操作が止まる）。
 - `file://` が開けない場合は、`--allow-unrestricted-file-access` 付きで Playwright MCP が設定されているかを確認する。
 - 単一選択の質問には「選択をクリア」ボタンがある（選んだ後でも、選択なし＋自由入力に戻せる）。
-- 既定の `.grilling/` を Git リポジトリ内に作った場合は、`.gitignore` への追加をユーザーに一言提案する（勝手に編集しない）。
+- 既定の `.roundtable/` を Git リポジトリ内に作った場合は、`.gitignore` への追加をユーザーに一言提案する（勝手に編集しない）。

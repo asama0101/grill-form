@@ -1,8 +1,8 @@
-"""grilling-html スキル用のスクリプト。
+"""roundtable スキル用のスクリプト。
 
 サブコマンド:
   init   --theme T [--parent P]  セッションフォルダを作り、パスを1行で出力する
-                              （親フォルダの決め方: --parent > 環境変数 GRILLING_HTML_DIR > <カレント>/.grilling。
+                              （親フォルダの決め方: --parent > 環境変数 ROUNDTABLE_DIR > <カレント>/.roundtable。
                                相対パスはカレントフォルダから解決する）
   render --session-dir D --round N [--final] --input J.json
                               質問 JSON から round-N.html（または final.html）を生成し、パスを出力する
@@ -24,9 +24,9 @@ import re
 import sys
 from pathlib import Path
 
-ENV_DIR = "GRILLING_HTML_DIR"
-DEFAULT_DIR = ".grilling"
-TEMPLATE = Path(__file__).with_name("grilling_html_template.html")
+ENV_DIR = "ROUNDTABLE_DIR"
+DEFAULT_DIR = ".roundtable"
+TEMPLATE = Path(__file__).with_name("roundtable_template.html")
 INVALID = re.compile(r'[\\/:*?"<>|\s]+')
 
 
@@ -37,8 +37,8 @@ def session_root(parent) -> Path:
 
 def cmd_init(args) -> int:
     stamp = datetime.datetime.now().strftime("%Y-%m-%d_%H%M")
-    theme = INVALID.sub("-", args.theme).strip("-") or "grilling"
-    d = session_root(args.parent) / f"{stamp}_grilling_{theme}"
+    theme = INVALID.sub("-", args.theme).strip("-") or "untitled"
+    d = session_root(args.parent) / f"{stamp}_roundtable_{theme}"
     d.mkdir(parents=True, exist_ok=True)
     print(d)
     return 0
