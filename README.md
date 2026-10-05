@@ -52,7 +52,7 @@ roundtable で <テーマ> を詰めたい
 
 1. `init` の `--parent` 引数
 2. 環境変数 `ROUNDTABLE_DIR`（相対パスはカレントフォルダから解決）
-3. `<カレントフォルダ>/.roundtable`
+3. カレントフォルダ（既定。HTML や回答を直接開けるよう、隠しフォルダにはしない）
 
 常に同じ場所へ保存したい場合は、Claude Code の `settings.json` で環境変数を設定します。
 
@@ -64,7 +64,7 @@ roundtable で <テーマ> を詰めたい
 }
 ```
 
-Git リポジトリ内で使う場合は、必要に応じて `.roundtable/` を `.gitignore` に追加してください。
+Git リポジトリ内で使う場合は、必要に応じて `*_roundtable_*/` を `.gitignore` に追加してください。
 
 ## ファイル構成
 

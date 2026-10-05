@@ -2,7 +2,7 @@
 
 サブコマンド:
   init   --theme T [--parent P]  セッションフォルダを作り、パスを1行で出力する
-                              （親フォルダの決め方: --parent > 環境変数 ROUNDTABLE_DIR > <カレント>/.roundtable。
+                              （親フォルダの決め方: --parent > 環境変数 ROUNDTABLE_DIR > カレントフォルダ。
                                相対パスはカレントフォルダから解決する）
   render --session-dir D --round N [--final] --input J.json
                               質問 JSON から round-N.html（または final.html）を生成し、パスを出力する
@@ -25,7 +25,7 @@ import sys
 from pathlib import Path
 
 ENV_DIR = "ROUNDTABLE_DIR"
-DEFAULT_DIR = ".roundtable"
+DEFAULT_DIR = "."
 TEMPLATE = Path(__file__).with_name("roundtable_template.html")
 INVALID = re.compile(r'[\\/:*?"<>|\s]+')
 
@@ -100,7 +100,7 @@ def main() -> int:
 
     p = sub.add_parser("init")
     p.add_argument("--theme", required=True)
-    p.add_argument("--parent", help=f"セッションフォルダを作る親フォルダ（既定: 環境変数 {ENV_DIR}、なければ <カレント>/{DEFAULT_DIR}）")
+    p.add_argument("--parent", help=f"セッションフォルダを作る親フォルダ（既定: 環境変数 {ENV_DIR}、なければカレントフォルダ）")
     p.set_defaults(fn=cmd_init)
 
     p = sub.add_parser("render")
