@@ -26,8 +26,8 @@ allowed-tools: Bash(python ${CLAUDE_SKILL_DIR}/roundtable.py *) Bash(python "${C
    - `submitted` が true なら、`md` をそのまま `<D>/round-N.answers.md` に書く（Write）。
    - false（未送信・ウィンドウを閉じた等）なら、書かずに続行方法を聞く。コピーボタンで Markdown を貼ってもらう手もある。
 6. 回答を読んで design tree を更新し、次のラウンド（手順2〜）へ。ラウンドごとに新しい HTML を生成する。
-7. frontier が空になったら、合意内容を SPEC 案（概要・流れ・受入条件・非目標・リスク・決定ログ）にまとめ、`{"title","intro","summary"}` の JSON で `render --final --round <N+1>` を実行して `final.html` を開く。回答は同様に `<D>/final.answers.md` に書く。
-8. `承認` なら、SPEC の保存先と形式をユーザーに提案する（承認なしではセッションフォルダの外に書かない）。保存したら `<D>/final-summary.md` にも要点を残し、`python "${CLAUDE_SKILL_DIR}/roundtable.py" index --session-dir "<D>"` で `index.md` を更新する。`修正あり` ならコメントを反映して手順7を繰り返す。
+7. frontier が空になったら、合意内容を SPEC 案（概要・流れ・受入条件・非目標・リスク・決定ログ）にまとめ、`{"title","intro","summary"}` の JSON で `render --final --round <K>` を実行して `<D>/final-K.html` を開く。K は最終確認の版番号で、1 から始めて修正のたびに 1 増やす（前の版を上書きしない）。回答は同様に `<D>/final-K.answers.md` に書く。
+8. `承認` なら、承認された版の `summary` をそのまま `<D>/spec.md` に書く（Write）。別のセッションに SPEC を渡すときは、このファイルを使う。`<D>/final-summary.md` にも要点を残し、`python "${CLAUDE_SKILL_DIR}/roundtable.py" index --session-dir "<D>"` で `index.md` を更新する。そのうえで、`spec.md` をセッションフォルダの外（例: `docs/`）にも置くかをユーザーに一言提案する（承認なしではセッションフォルダの外に書かない）。`修正あり` ならコメントを反映し、K を 1 増やして手順7を繰り返す。
 
 ## 回答 Markdown の書式（ページ側が生成する）
 ```

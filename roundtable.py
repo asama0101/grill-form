@@ -5,8 +5,10 @@
                               （親フォルダの決め方: --parent > 環境変数 ROUNDTABLE_DIR > カレントフォルダ。
                                相対パスはカレントフォルダから解決する）
   render --session-dir D --round N [--final] --input J.json
-                              質問 JSON から round-N.html（または final.html）を生成し、パスを出力する
-  index  --session-dir D      フォルダ内のファイルを並べた index.md を（再）生成する
+                              質問 JSON から round-N.html を生成し、パスを出力する。
+                              --final のときは N を最終確認の版番号とし、final-N.html を生成する
+                              （修正のたびに版を上げ、前の版を上書きしない）
+  index  --session-dir D      フォルダ内の HTML と回答を並べた index.md を（再）生成する
 
 質問 JSON:
   {"title": "...", "intro": "...", "questions": [
@@ -58,17 +60,30 @@ def cmd_render(args) -> int:
     payload["round"] = args.round
     payload["mode"] = "final" if args.final else "round"
     if not payload.get("title"):
-        payload["title"] = "最終確認" if args.final else f"ラウンド {args.round}"
+        payload["title"] = f"最終確認（第{args.round}版）" if args.final else f"ラウンド {args.round}"
     html = TEMPLATE.read_text(encoding="utf-8").replace("__DATA__", embed(payload))
-    out = d / ("final.html" if args.final else f"round-{args.round}.html")
+    out = d / (f"final-{args.round}.html" if args.final else f"round-{args.round}.html")
     out.write_text(html, encoding="utf-8")
     print(out)
     return 0
 
 
+def numbered(d: Path, prefix: str) -> list:
+    # <prefix>-N.html / <prefix>-N.answers.md の N を昇順で返す
+    pat = re.compile(rf"{prefix}-(\d+)\.(?:html|answers\.md)$")
+    return sorted({int(m.group(1)) for p in d.iterdir() if (m := pat.match(p.name))})
+
+
+def links(d: Path, stem: str, html_label: str) -> str:
+    parts = [f"[{label}]({name})" for label, name in ((html_label, f"{stem}.html"), ("回答", f"{stem}.answers.md"))
+             if (d / name).exists()]
+    return f"- {stem}: " + " / ".join(parts)
+
+
 def cmd_index(args) -> int:
     d = Path(args.session_dir)
-    rounds = sorted(d.glob("round-*.answers.md"), key=lambda p: int(re.search(r"round-(\d+)", p.name).group(1)))
+    rounds = numbered(d, "round")
+    finals = numbered(d, "final")
     lines = [
         "---",
         "type: doc",
@@ -79,15 +94,13 @@ def cmd_index(args) -> int:
         "",
         "## ラウンド",
     ]
-    for p in rounds:
-        lines.append(f"- [{p.stem}]({p.name})")
-    if not rounds:
-        lines.append("- （まだありません）")
-    lines.append("")
-    lines.append("## 最終")
-    for name in ("final.answers", "final-summary"):
-        if (d / f"{name}.md").exists():
-            lines.append(f"- [{name}]({name}.md)")
+    lines += [links(d, f"round-{n}", "質問") for n in rounds] or ["- （まだありません）"]
+    lines += ["", "## 最終確認"]
+    if (d / "spec.md").exists():
+        lines.append("- [spec](spec.md)（承認済みの SPEC）")
+    lines += [links(d, f"final-{n}", "SPEC 案") for n in finals]
+    if (d / "final-summary.md").exists():
+        lines.append("- [final-summary](final-summary.md)")
     (d / "index.md").write_text("\n".join(lines) + "\n", encoding="utf-8")
     print(d / "index.md")
     return 0
