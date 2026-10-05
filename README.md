@@ -83,7 +83,7 @@ roundtable で <テーマ> を詰めたい
 }
 ```
 
-Git リポジトリ内で使う場合は、必要に応じて `*_roundtable_*/` を `.gitignore` に追加してください。
+Git リポジトリ内で使う場合は、必要に応じて `*_roundtable_*/` を `.gitignore` に追加してください。Playwright MCP を `--output-dir` なしで登録している場合は、作業フォルダに `.playwright-mcp/` もできるため、あわせて追加してください（または「2. Playwright MCP を登録する」の手順で `--output-dir` を設定します）。
 
 ## ファイル構成
 
