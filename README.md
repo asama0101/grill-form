@@ -48,7 +48,7 @@ roundtable で <テーマ> を詰めたい
 
 ## セッションの保存先
 
-質問の HTML と回答の Markdown は、次の順で決まるフォルダの下に `<日時>_roundtable_<テーマ>/` として保存されます。
+質問の HTML と回答の Markdown は、次の順で決まるフォルダの下に `<日時>_roundtable_<テーマ>/` として保存されます。承認された SPEC はその中の `spec.md` です。別の Claude Code セッションに SPEC を渡すときは、このファイルを渡します。
 
 1. `init` の `--parent` 引数
 2. 環境変数 `ROUNDTABLE_DIR`（相対パスはカレントフォルダから解決）
