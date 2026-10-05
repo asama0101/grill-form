@@ -48,4 +48,4 @@ round: <N>
 - JS の `alert/confirm/prompt` は使わない（ブラウザ操作が止まる）。
 - `file://` が開けない場合は、`--allow-unrestricted-file-access` 付きで Playwright MCP が設定されているかを確認する。
 - 単一選択の質問には「選択をクリア」ボタンがある（選んだ後でも、選択なし＋自由入力に戻せる）。
-- セッションフォルダを Git リポジトリ内に作った場合は、`.gitignore` への `*_roundtable_*/` の追加をユーザーに一言提案する（勝手に編集しない）。
+- セッションフォルダを Git リポジトリ内に作った場合は、`.gitignore` への `*_roundtable_*/` の追加をユーザーに一言提案する（勝手に編集しない）。カレントフォルダに `.playwright-mcp/`（Playwright MCP のページの記録）ができていれば、`.playwright-mcp/` の追加もあわせて提案し、README の「すでに Playwright MCP を登録している場合」の `--output-dir` 設定も一言案内する。
