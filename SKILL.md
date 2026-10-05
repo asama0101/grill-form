@@ -18,7 +18,7 @@ allowed-tools: Bash(python ${CLAUDE_SKILL_DIR}/roundtable.py *) Bash(python "${C
 - 質問 ID（`Q1`, `Q2`…）はセッション通しで一意にする（ラウンドでリセットしない）。
 
 ## 手順
-1. セッション作成: `python "${CLAUDE_SKILL_DIR}/roundtable.py" init --theme "<テーマ>"` を実行する。テーマは ASCII の短い名前にする（Windows の Git Bash 経由の日本語引数は文字化けするため。例: `api-design`）。出力された絶対パス（以下 `<D>`）を控える。セッションのフォルダは `<親>/<日時>_roundtable_<テーマ>/` にできる。親は `--parent` > 環境変数 `ROUNDTABLE_DIR` > `<カレント>/.roundtable` の順で決まる。
+1. セッション作成: `python "${CLAUDE_SKILL_DIR}/roundtable.py" init --theme "<テーマ>"` を実行する。テーマは ASCII の短い名前にする（Windows の Git Bash 経由の日本語引数は文字化けするため。例: `api-design`）。出力された絶対パス（以下 `<D>`）を控える。セッションのフォルダは `<親>/<日時>_roundtable_<テーマ>/` にできる。親は `--parent` > 環境変数 `ROUNDTABLE_DIR` > カレントフォルダの順で決まる（人が開くファイルなので、隠しフォルダには置かない）。
 2. 質問 JSON を書く。置き場所はスクラッチパッド（なければ `<D>`）。形式は `roundtable.py` の docstring を参照（`title`, `intro`, `questions[]` = `id`, `title`, `body`, `multi`, `options[]` = `key`, `label`, `desc`、`recommended[]`, `reason`）。
 3. 生成: `python "${CLAUDE_SKILL_DIR}/roundtable.py" render --session-dir "<D>" --round <N> --input <json>` → `<D>/round-N.html`。
 4. Playwright MCP で `browser_navigate` により `file://` URL を開く（Windows は `file:///C:/.../round-N.html` のようにスラッシュ区切りにする。macOS/Linux は `file:///home/.../round-N.html`）。ユーザーに「回答して『送信』を押し、ターミナルに『完了』と入力してください」と伝えて待つ。
@@ -48,4 +48,4 @@ round: <N>
 - JS の `alert/confirm/prompt` は使わない（ブラウザ操作が止まる）。
 - `file://` が開けない場合は、`--allow-unrestricted-file-access` 付きで Playwright MCP が設定されているかを確認する。
 - 単一選択の質問には「選択をクリア」ボタンがある（選んだ後でも、選択なし＋自由入力に戻せる）。
-- 既定の `.roundtable/` を Git リポジトリ内に作った場合は、`.gitignore` への追加をユーザーに一言提案する（勝手に編集しない）。
+- セッションフォルダを Git リポジトリ内に作った場合は、`.gitignore` への `*_roundtable_*/` の追加をユーザーに一言提案する（勝手に編集しない）。
