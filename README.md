@@ -27,10 +27,29 @@ git clone https://github.com/asama0101/roundtable.git ~/.claude/skills/roundtabl
 ### 2. Playwright MCP を登録する
 
 ```bash
-claude mcp add playwright --scope user -- npx @playwright/mcp@latest --allow-unrestricted-file-access
+claude mcp add playwright --scope user -- npx @playwright/mcp@latest --allow-unrestricted-file-access --output-dir "$HOME/.playwright-mcp"
 ```
 
-ブラウザを指定する場合は `--browser chrome` などを追加します。
+- `--allow-unrestricted-file-access`: ローカルの `file://` の HTML を開くために必要です。
+- `--output-dir`: Playwright MCP がページを開くたびに保存する記録（`page-*.yml`）の置き場所です。指定しないと、作業フォルダに `.playwright-mcp/` ができます。roundtable はこの記録を使わないので、作業フォルダの外にまとめます。
+- ブラウザを指定する場合は `--browser chrome` などを追加します。
+
+#### すでに Playwright MCP を登録している場合
+
+`claude mcp add` は既存の登録を上書きしないため、一度削除してから登録し直します。
+
+```bash
+# 今の設定（スコープと引数）を確認する
+claude mcp get playwright
+
+# 確認したスコープで削除し、--output-dir を加えて登録し直す
+claude mcp remove playwright --scope user
+claude mcp add playwright --scope user -- npx @playwright/mcp@latest --allow-unrestricted-file-access --output-dir "$HOME/.playwright-mcp"
+```
+
+- 元の引数（`--browser chrome` など）は残してください。
+- スコープが `user` 以外（`local` / `project`）の場合は、`--scope` をそれに合わせます。
+- 反映には Claude Code の再起動が必要です。
 
 ## 使い方
 

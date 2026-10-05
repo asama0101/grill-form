@@ -87,7 +87,7 @@ def cmd_index(args) -> int:
     lines = [
         "---",
         "type: doc",
-        "status: draft",
+        f"status: {'approved' if (d / 'spec.md').exists() else 'draft'}",
         f"created: {datetime.date.today().isoformat()}",
         "---",
         f"# {d.name}",
