@@ -8,6 +8,8 @@ Claude Code 用のスキルです。grilling（質問攻めで合意を作る手
 - Python 3.8 以上（標準ライブラリのみ使用）
 - [Playwright MCP](https://github.com/microsoft/playwright-mcp)（`--allow-unrestricted-file-access` 付き。ローカルの `file://` を開くため）
 
+grilling の進め方は `SKILL.md` に含まれているため、[grilling スキル](https://github.com/mattpocock/skills/tree/main/skills/productivity/grilling) のインストールは不要です（併用もできます）。
+
 ## インストール
 
 ### 1. スキルを配置する
@@ -71,7 +73,10 @@ Git リポジトリ内で使う場合は、必要に応じて `.grilling/` を `
 | `SKILL.md` | スキルの定義と手順 |
 | `grilling_html.py` | セッション作成（`init`）、HTML 生成（`render`）、索引作成（`index`） |
 | `grilling_html_template.html` | 質問フォームのテンプレート（外部リソースなし） |
+| `THIRD_PARTY_NOTICES.md` | 取り込んだルールの出典とライセンス |
 
 ## ライセンス
 
 [MIT](LICENSE)
+
+`SKILL.md` の「ルール」節は、Matt Pocock 氏の [grilling スキル](https://github.com/mattpocock/skills/tree/main/skills/productivity/grilling)（MIT）を要約・翻案したものです。元のライセンス表記は [THIRD_PARTY_NOTICES.md](THIRD_PARTY_NOTICES.md) にあります。

@@ -1,14 +1,16 @@
 ---
 name: grilling-html
-description: grilling（質問攻めで合意を作る手法）を HTML のフォームで行い、候補選択・自由入力・保留で内容を詰めて、最後に SPEC 形式で結果を出す。ユーザーが「HTML で grilling」「grilling-html」と明示したときだけ使う。通常の「grill」は grilling スキルを使う。
+description: grilling（質問攻めで合意を作る手法）を HTML のフォームで行い、候補選択・自由入力・保留で内容を詰めて、最後に SPEC 形式で結果を出す。ユーザーが「HTML で grilling」「grilling-html」と明示したときだけ使う。単に「grill して」と頼まれただけのときは使わない。
 allowed-tools: Bash(python ${CLAUDE_SKILL_DIR}/grilling_html.py *) Bash(python "${CLAUDE_SKILL_DIR}/grilling_html.py" *) Bash(python3 ${CLAUDE_SKILL_DIR}/grilling_html.py *) Bash(python3 "${CLAUDE_SKILL_DIR}/grilling_html.py" *)
 ---
 
 # grilling-html
 
-`grilling` の流儀を HTML フォームで進め、合意内容を SPEC にまとめる。以下の `python` は、環境に `python` コマンドがなければ `python3` に読み替える。
+計画や設計について、ユーザーに質問をラウンド単位で重ねて合意を作る（grilling）。質問と回答は HTML フォームでやり取りし、合意内容を SPEC にまとめる。以下の `python` は、環境に `python` コマンドがなければ `python3` に読み替える。
 
-## ルール（grilling から取り込み）
+## ルール
+出典: [mattpocock/skills の grilling](https://github.com/mattpocock/skills/tree/main/skills/productivity/grilling)（MIT）を要約・翻案。design tree は、決定ごとにそれに依存する決定が枝分かれする木。frontier は、前提がすべて決着済みで推測なしに今聞ける決定の集まり。
+
 - 決定事項を design tree として扱う。前提が決着済みで今聞ける質問（frontier）を、1ラウンドにまとめて出す。回答を待ってから次へ進む。
 - 各質問に推奨案（`recommended` と `reason`）を付ける。選択式にして、トレードオフを `desc` に書く。
 - 環境から調べられる事実はサブエージェントに調べさせ、ユーザーには聞かない。決定だけをユーザーに聞く。調査待ちの質問は後のラウンドに回す。
