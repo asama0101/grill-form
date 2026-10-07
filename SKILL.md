@@ -19,15 +19,20 @@ allowed-tools: Bash(python ${CLAUDE_SKILL_DIR}/roundtable.py *) Bash(python "${C
 
 ## 手順
 1. セッション作成: `python "${CLAUDE_SKILL_DIR}/roundtable.py" init --theme "<テーマ>"` を実行する。テーマは ASCII の短い名前にする（Windows の Git Bash 経由の日本語引数は文字化けするため。例: `api-design`）。出力された絶対パス（以下 `<D>`）を控える。セッションのフォルダは `<親>/<日時>_roundtable_<テーマ>/` にできる。親は `--parent` > 環境変数 `ROUNDTABLE_DIR` > カレントフォルダの順で決まる（人が開くファイルなので、隠しフォルダには置かない）。
-2. 質問 JSON を書く。置き場所はスクラッチパッド（なければ `<D>`）。形式は `roundtable.py` の docstring を参照（`title`, `intro`, `questions[]` = `id`, `title`, `body`, `multi`, `options[]` = `key`, `label`, `desc`、`recommended[]`, `reason`）。
-3. 生成: `python "${CLAUDE_SKILL_DIR}/roundtable.py" render --session-dir "<D>" --round <N> --input <json>` → `<D>/round-N.html`。
-4. Playwright MCP で `browser_navigate` により `file://` URL を開く（Windows は `file:///C:/.../round-N.html` のようにスラッシュ区切りにする。macOS/Linux は `file:///home/.../round-N.html`）。ユーザーに「回答して『送信』を押し、ターミナルに『完了』と入力してください」と伝えて待つ。
-5. 「完了」を受けたら、`browser_evaluate` で `() => ({ submitted: window.__submitted, md: window.__answersMd })` を実行する。
+2. 事前確認（Round 0）: 通常の質問に入る前に、`--round 0` で次の3点を1ラウンドで確認する。依頼文や環境から分かる内容は推奨案として埋め、ユーザーには確認・修正だけしてもらう（毎回行う。小さい依頼でも省略しない）。質問 JSON・生成・回答の記録は手順3〜6と同じ。
+   - 目的とゴール: 何のために行い、何ができたら完了か（完了の判定基準）。
+   - 障壁: ゴールに至るまでの障害・懸念・つまずきそうな点を、ユーザーにヒアリングする。
+   - 制約: 期限・予算・技術・既存資産・変更してはいけないもの・守るべきルールなど。
+   回答は以降のラウンドの前提にし、SPEC では既存項目に吸収する（目的・ゴール→概要、障壁→リスク、制約→非目標・決定ログ）。
+3. 質問 JSON を書く。置き場所はスクラッチパッド（なければ `<D>`）。形式は `roundtable.py` の docstring を参照（`title`, `intro`, `questions[]` = `id`, `title`, `body`, `multi`, `options[]` = `key`, `label`, `desc`、`recommended[]`, `reason`）。
+4. 生成: `python "${CLAUDE_SKILL_DIR}/roundtable.py" render --session-dir "<D>" --round <N> --input <json>` → `<D>/round-N.html`。
+5. Playwright MCP で `browser_navigate` により `file://` URL を開く（Windows は `file:///C:/.../round-N.html` のようにスラッシュ区切りにする。macOS/Linux は `file:///home/.../round-N.html`）。ユーザーに「回答して『送信』を押し、ターミナルに『完了』と入力してください」と伝えて待つ。
+6. 「完了」を受けたら、`browser_evaluate` で `() => ({ submitted: window.__submitted, md: window.__answersMd })` を実行する。
    - `submitted` が true なら、`md` をそのまま `<D>/round-N.answers.md` に書く（Write）。
    - false（未送信・ウィンドウを閉じた等）なら、書かずに続行方法を聞く。コピーボタンで Markdown を貼ってもらう手もある。
-6. 回答を読んで design tree を更新し、次のラウンド（手順2〜）へ。ラウンドごとに新しい HTML を生成する。
-7. frontier が空になったら、合意内容を SPEC 案（概要・流れ・受入条件・非目標・リスク・決定ログ）にまとめ、`{"title","intro","summary"}` の JSON で `render --final --round <K>` を実行して `<D>/final-K.html` を開く。K は最終確認の版番号で、1 から始めて修正のたびに 1 増やす（前の版を上書きしない）。回答は同様に `<D>/final-K.answers.md` に書く。
-8. `承認` なら、承認された版の `summary` をそのまま `<D>/spec.md` に書く（Write）。別のセッションに SPEC を渡すときは、このファイルを使う。`<D>/final-summary.md` にも要点を残し、`python "${CLAUDE_SKILL_DIR}/roundtable.py" index --session-dir "<D>"` で `index.md` を更新する。そのうえで、`spec.md` をセッションフォルダの外（例: `docs/`）にも置くかをユーザーに一言提案する（承認なしではセッションフォルダの外に書かない）。`修正あり` ならコメントを反映し、K を 1 増やして手順7を繰り返す。
+7. 回答を読んで design tree を更新し、次のラウンド（手順3〜）へ。ラウンドごとに新しい HTML を生成する。
+8. frontier が空になったら、合意内容を SPEC 案（概要・流れ・受入条件・非目標・リスク・決定ログ）にまとめ、`{"title","intro","summary"}` の JSON で `render --final --round <K>` を実行して `<D>/final-K.html` を開く。K は最終確認の版番号で、1 から始めて修正のたびに 1 増やす（前の版を上書きしない）。回答は同様に `<D>/final-K.answers.md` に書く。
+9. `承認` なら、承認された版の `summary` をそのまま `<D>/spec.md` に書く（Write）。別のセッションに SPEC を渡すときは、このファイルを使う。`<D>/final-summary.md` にも要点を残し、`python "${CLAUDE_SKILL_DIR}/roundtable.py" index --session-dir "<D>"` で `index.md` を更新する。そのうえで、`spec.md` をセッションフォルダの外（例: `docs/`）にも置くかをユーザーに一言提案する（承認なしではセッションフォルダの外に書かない）。`修正あり` ならコメントを反映し、K を 1 増やして手順8を繰り返す。
 
 ## 回答 Markdown の書式（ページ側が生成する）
 ```
