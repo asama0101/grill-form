@@ -23,14 +23,34 @@ body { margin: 0; padding: 24px 16px 80px; background: var(--bg); color: var(--t
 main { max-width: 820px; margin: 0 auto; }
 h1 { font-size: 20px; margin: 0 0 4px; }
 .meta { color: var(--muted); font-size: 13px; margin-bottom: 16px; }
-.intro, .summary { white-space: pre-wrap; background: var(--card); border: 1px solid var(--border);
+.intro, .summary { background: var(--card); border: 1px solid var(--border);
   border-radius: 10px; padding: 14px 16px; margin-bottom: 20px; }
 .q { background: var(--card); border: 1px solid var(--border); border-radius: 10px;
   padding: 16px; margin-bottom: 16px; }
 .q.hold { opacity: .7; }
 .q h2 { font-size: 16px; margin: 0 0 8px; }
 .q .id { color: var(--accent); margin-right: 6px; }
-.body { white-space: pre-wrap; margin-bottom: 12px; }
+.body { margin-bottom: 12px; }
+.body p { margin: 0 0 8px; white-space: pre-wrap; }
+.body ul { margin: 0 0 8px; padding-left: 1.4em; }
+.body code { background: var(--bg); border: 1px solid var(--border); border-radius: 4px; padding: 0 4px; font-size: 13px; }
+.body pre { background: var(--bg); border: 1px solid var(--border); border-radius: 8px; padding: 8px 12px; overflow-x: auto; margin: 0 0 8px; }
+.body pre code { border: 0; padding: 0; }
+.body .md-h { margin: 18px 0 8px; line-height: 1.4; }
+.body h3.md-h { font-size: 18px; padding-bottom: 4px; border-bottom: 2px solid var(--accent); }
+.body h4.md-h { font-size: 16px; padding-left: 8px; border-left: 4px solid var(--accent); }
+.body h5.md-h, .body h6.md-h { font-size: 15px; color: var(--accent); }
+.body > .md-h:first-child { margin-top: 0; }
+.body ol { margin: 0 0 8px; padding-left: 1.6em; }
+.body li { margin: 2px 0; }
+.body hr { border: 0; border-top: 1px solid var(--border); margin: 14px 0; }
+.body blockquote { margin: 0 0 8px; padding: 4px 12px; border-left: 4px solid var(--border); color: var(--muted); }
+.summary { padding: 18px 22px; }
+.body .tbl { overflow-x: auto; margin: 0 0 8px; }
+.body table { border-collapse: collapse; font-size: 14px; }
+.body th, .body td { border: 1px solid var(--border); padding: 4px 10px; text-align: left; vertical-align: top; }
+.body th { background: var(--bg); font-weight: 700; }
+details.long > summary { cursor: pointer; color: var(--accent); font-size: 13px; margin-bottom: 8px; }
 .opt { display: flex; gap: 10px; align-items: flex-start; padding: 8px 10px; margin: 6px 0;
   border: 1px solid var(--border); border-radius: 8px; cursor: pointer; }
 .opt:hover { border-color: var(--accent); }
@@ -95,13 +115,108 @@ button.clear { font-size: 13px; padding: 2px 12px; margin: 2px 0 4px; color: var
 
   var blocks = []; // 質問ごとの読み取り関数
 
+  // 簡易 Markdown（段落・箇条書き・コードブロック・インラインコード）。innerHTML は使わない
+  function inline(parent, text) {
+    text.split(/(`[^`]+`|\*\*[^*]+\*\*)/).forEach(function (part) {
+      if (/^`[^`]+`$/.test(part)) parent.appendChild(el('code', '', part.slice(1, -1)));
+      else if (/^\*\*[^*]+\*\*$/.test(part)) parent.appendChild(el('strong', '', part.slice(2, -2)));
+      else if (part) parent.appendChild(document.createTextNode(part));
+    });
+  }
+  var TABLE_SEP = /^\s*\|?\s*:?-+:?\s*(\|\s*:?-+:?\s*)*\|?\s*$/;
+  function tableCells(line) {
+    // 先頭・末尾の | を外し、エスケープされていない | で分ける（\| は文字としての |）
+    var s = line.trim().replace(/^\|/, '').replace(/\|$/, '');
+    return s.split(/(?<!\\)\|/).map(function (c) { return c.trim().replace(/\\\|/g, '|'); });
+  }
+  function mdLite(text) {
+    var root = el('div', 'body');
+    var lines = text.split(/\r?\n/), i = 0, para = [], list = null;
+    function flush() {
+      if (para.length) { var p = el('p'); inline(p, para.join('\n')); root.appendChild(p); para = []; }
+      list = null;
+    }
+    while (i < lines.length) {
+      var ln = lines[i];
+      if (/^```/.test(ln)) {
+        flush();
+        var code = [];
+        for (i++; i < lines.length && !/^```/.test(lines[i]); i++) code.push(lines[i]);
+        var pre = el('pre'); pre.appendChild(el('code', '', code.join('\n'))); root.appendChild(pre);
+      } else if (/^\s*\|/.test(ln) && i + 1 < lines.length && TABLE_SEP.test(lines[i + 1])) {
+        flush();
+        var head = tableCells(ln), aligns = tableCells(lines[i + 1]).map(function (c) {
+          return /^:-+:$/.test(c) ? 'center' : /-:$/.test(c) ? 'right' : /^:-/.test(c) ? 'left' : '';
+        });
+        var table = el('table'), thead = el('thead'), htr = el('tr');
+        head.forEach(function (c, k) {
+          var th = el('th'); inline(th, c); if (aligns[k]) th.style.textAlign = aligns[k]; htr.appendChild(th);
+        });
+        thead.appendChild(htr); table.appendChild(thead);
+        var tbody = el('tbody');
+        for (i += 2; i < lines.length && /^\s*\|/.test(lines[i]); i++) {
+          var tr = el('tr');
+          tableCells(lines[i]).forEach(function (c, k) {
+            var td = el('td'); inline(td, c); if (aligns[k]) td.style.textAlign = aligns[k]; tr.appendChild(td);
+          });
+          tbody.appendChild(tr);
+        }
+        i--; // 外側の i++ で表の次の行へ進む
+        table.appendChild(tbody);
+        var wrap = el('div', 'tbl'); wrap.appendChild(table); root.appendChild(wrap);
+      } else if (/^#{1,4} /.test(ln)) {
+        flush();
+        var lv = ln.match(/^#+/)[0].length;
+        var hd = el('h' + (lv + 2)); hd.className = 'md-h'; inline(hd, ln.replace(/^#+ +/, '')); root.appendChild(hd);
+      } else if (/^\s*(?:-{3,}|\*{3,})\s*$/.test(ln)) {
+        flush();
+        root.appendChild(el('hr'));
+      } else if (/^>/.test(ln)) {
+        flush();
+        var bq = el('blockquote');
+        for (; i < lines.length && /^>/.test(lines[i]); i++) {
+          if (bq.childNodes.length) bq.appendChild(document.createElement('br'));
+          inline(bq, lines[i].replace(/^> ?/, ''));
+        }
+        i--;
+        root.appendChild(bq);
+      } else if (/^\s*(?:[-*]|\d+[.)]) /.test(ln)) {
+        if (para.length) flush();
+        var tag = /^\s*\d+[.)] /.test(ln) ? 'ol' : 'ul';
+        if (!list || list.tagName.toLowerCase() !== tag) { list = el(tag); root.appendChild(list); }
+        var li = el('li'); inline(li, ln.replace(/^\s*(?:[-*]|\d+[.)]) /, '')); list.appendChild(li);
+      } else if (!ln.trim()) {
+        flush();
+      } else {
+        list = null; para.push(ln);
+      }
+      i++;
+    }
+    flush();
+    return root;
+  }
+  function card_md(cls, text) {
+    var box = el('div', cls);
+    box.appendChild(mdLite(text));
+    return box;
+  }
+  function renderBody(text) {
+    var node = mdLite(text);
+    // 長い本文は折りたたむ（既定は閉じる）
+    if (text.length <= 400 && text.split('\n').length <= 12) return node;
+    var d = el('details', 'long');
+    d.appendChild(el('summary', '', '詳細を表示（' + text.length + ' 文字）'));
+    d.appendChild(node);
+    return d;
+  }
+
   function renderQuestion(q) {
     var card = el('section', 'q');
     var h = el('h2');
     h.appendChild(el('span', 'id', q.id));
     h.appendChild(document.createTextNode(q.title));
     card.appendChild(h);
-    if (q.body) card.appendChild(el('div', 'body', q.body));
+    if (q.body) card.appendChild(renderBody(q.body));
 
     var rec = q.recommended || [];
     var inputs = [];
@@ -134,7 +249,9 @@ button.clear { font-size: 13px; padding: 2px 12px; margin: 2px 0 4px; color: var
     }
     if (q.reason) card.appendChild(el('div', 'reason', '推奨の理由: ' + q.reason));
 
-    var f1 = el('label', 'field', '自由入力（候補にない回答は「その他」を選ばずここに書いてOK）');
+    var f1 = el('label', 'field', (q.options && q.options.length)
+      ? '自由入力（候補にない回答は「その他」を選ばずここに書いてOK）'
+      : '回答（自由記述）');
     var free = document.createElement('textarea');
     f1.appendChild(free);
     card.appendChild(f1);
@@ -142,6 +259,10 @@ button.clear { font-size: 13px; padding: 2px 12px; margin: 2px 0 4px; color: var
     var note = document.createElement('textarea');
     f2.appendChild(note);
     card.appendChild(f2);
+    var f3 = el('label', 'field', '聞き返し（質問が分からない・確認したいこと。書くと「要確認」になり、次のラウンドで Claude が説明か補足質問を返します）');
+    var ask = document.createElement('textarea');
+    f3.appendChild(ask);
+    card.appendChild(f3);
 
     var hr = el('div', 'hold-row');
     var holdLabel = el('label');
@@ -157,8 +278,9 @@ button.clear { font-size: 13px; padding: 2px 12px; margin: 2px 0 4px; color: var
     blocks.push(function () {
       var sel = inputs.filter(function (i) { return i.checked; }).map(function (i) { return i.value; });
       var freeText = free.value.trim();
-      var state = hold.checked ? '保留' : ((sel.length || freeText) ? '回答' : '未回答');
-      return { id: q.id, sel: sel, free: freeText, note: note.value.trim(), state: state };
+      var askText = ask.value.trim();
+      var state = hold.checked ? '保留' : askText ? '要確認' : ((sel.length || freeText) ? '回答' : '未回答');
+      return { id: q.id, sel: sel, free: freeText, note: note.value.trim(), ask: askText, state: state };
     });
   }
 
@@ -174,6 +296,7 @@ button.clear { font-size: 13px; padding: 2px 12px; margin: 2px 0 4px; color: var
         '- 選択: ' + r.sel.join(', ') + '\n' +
         '- 自由入力: ' + oneLine(r.free) + '\n' +
         '- 補足: ' + oneLine(r.note) + '\n' +
+        '- 聞き返し: ' + oneLine(r.ask) + '\n' +
         '- 状態: ' + r.state + '\n';
     });
     return { md: md, unanswered: unanswered };
@@ -181,8 +304,8 @@ button.clear { font-size: 13px; padding: 2px 12px; margin: 2px 0 4px; color: var
 
   var approveGet = null;
   function renderFinal() {
-    if (data.intro) content.appendChild(el('div', 'intro', data.intro));
-    content.appendChild(el('div', 'summary', data.summary || ''));
+    if (data.intro) content.appendChild(card_md('intro', data.intro));
+    content.appendChild(card_md('summary', data.summary || ''));
     var card = el('section', 'q approve');
     card.appendChild(el('h2', '', '承認'));
     var row = el('div');
@@ -210,7 +333,7 @@ button.clear { font-size: 13px; padding: 2px 12px; margin: 2px 0 4px; color: var
   if (data.mode === 'final') {
     renderFinal();
   } else {
-    if (data.intro) content.appendChild(el('div', 'intro', data.intro));
+    if (data.intro) content.appendChild(card_md('intro', data.intro));
     (data.questions || []).forEach(renderQuestion);
   }
 
