@@ -9,6 +9,10 @@
                               --final のときは N を最終確認の版番号とし、final-N.html を生成する
                               （修正のたびに版を上げ、前の版を上書きしない）
   index  --session-dir D      フォルダ内の HTML と回答を並べた index.md を（再）生成する
+  cleanup --session-dir D [--yes]
+                              spec.md 以外の roundtable 生成ファイル（round-N / final-N の HTML と回答、
+                              final-summary.md、index.md）を削除対象として一覧する。--yes を付けたときだけ削除する。
+                              spec.md がなければ何もしない（承認前は消さない）
 
 質問 JSON:
   {"title": "...", "intro": "...", "questions": [
@@ -106,8 +110,32 @@ def cmd_index(args) -> int:
     return 0
 
 
+GENERATED = re.compile(r"(?:round|final)-\d+\.(?:html|answers\.md)|final-summary\.md|index\.md")
+
+
+def cmd_cleanup(args) -> int:
+    d = Path(args.session_dir)
+    if not (d / "spec.md").exists():
+        print("spec.md がないため何もしません（承認前は削除しません）。", file=sys.stderr)
+        return 1
+    # 既知の生成ファイル名だけを対象にする（ユーザーが置いた他のファイルやサブフォルダには触れない）
+    targets = sorted(p for p in d.iterdir() if p.is_file() and GENERATED.fullmatch(p.name))
+    if not targets:
+        print("削除対象はありません。")
+        return 0
+    print("削除対象:" if args.yes else "削除対象（--yes で削除）:")
+    for p in targets:
+        print(f"  {p.name}")
+        if args.yes:
+            p.unlink()
+    if args.yes:
+        print(f"{len(targets)} 件を削除しました。残り: spec.md")
+    return 0
+
+
 def main() -> int:
     sys.stdout.reconfigure(encoding="utf-8")
+    sys.stderr.reconfigure(encoding="utf-8")
     ap = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
     sub = ap.add_subparsers(dest="cmd", required=True)
 
@@ -126,6 +154,11 @@ def main() -> int:
     p = sub.add_parser("index")
     p.add_argument("--session-dir", required=True)
     p.set_defaults(fn=cmd_index)
+
+    p = sub.add_parser("cleanup")
+    p.add_argument("--session-dir", required=True)
+    p.add_argument("--yes", action="store_true", help="一覧だけでなく実際に削除する")
+    p.set_defaults(fn=cmd_cleanup)
 
     args = ap.parse_args()
     return args.fn(args)
