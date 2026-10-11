@@ -31,7 +31,7 @@ claude mcp add playwright --scope user -- npx @playwright/mcp@latest --allow-unr
 ```
 
 - `--allow-unrestricted-file-access`: ローカルの `file://` の HTML を開くために必要です。
-- `--output-dir`: Playwright MCP がページを開くたびに保存する記録（`page-*.yml`）の置き場所です。指定しないと、作業フォルダに `.playwright-mcp/` ができます。roundtable はこの記録を使わないので、作業フォルダの外にまとめます。
+- `--output-dir`: Playwright MCP がページを開くたびに保存する記録（`page-*.yml`）の置き場所です。指定しないと、作業フォルダに `.playwright-mcp/` ができることがあります。roundtable はこの記録を使わないので、作業フォルダの外にまとめます。必要なら `.gitignore` に `.playwright-mcp/` を追加してください。
 - ブラウザを指定する場合は `--browser chrome` などを追加します。
 
 #### すでに Playwright MCP を登録している場合
@@ -67,13 +67,21 @@ roundtable で <テーマ> を詰めたい
 
 質問が分からないときや確認したいときは、各質問の「聞き返し」欄に書いて送信します（状態は「要確認」）。次のラウンドで Claude が説明か補足質問を返します。選択肢のない質問は、自由記述だけで答えます。
 
-## セッションの保存先
+## ファイルの保存先と削除
 
-質問の HTML と回答の Markdown は、次の順で決まるフォルダの下に `<日時>_roundtable_<テーマ>/` として保存されます。承認された SPEC はその中の `spec.md` です。別の Claude Code セッションに SPEC を渡すときは、このファイルを渡します。
+作業用のファイル（質問の HTML・回答の Markdown・質問 JSON）は、OS の一時フォルダ（Windows は `%TEMP%oundtable\<日時>_<テーマ>\`）に作られ、プロジェクトには何も作られません。
+
+承認された SPEC だけが、次の場所に `spec.md` として保存されます。別の Claude Code セッションに SPEC を渡すときは、このファイルを渡します。
+
+```
+<親>/<日時>_roundtable_<テーマ>/spec.md
+```
+
+親フォルダは次の順で決まります。
 
 1. `init` の `--parent` 引数
 2. 環境変数 `ROUNDTABLE_DIR`（相対パスはカレントフォルダから解決）
-3. カレントフォルダ（既定。HTML や回答を直接開けるよう、隠しフォルダにはしない）
+3. `docs`（既定。カレントフォルダ直下）
 
 常に同じ場所へ保存したい場合は、Claude Code の `settings.json` で環境変数を設定します。
 
@@ -85,16 +93,19 @@ roundtable で <テーマ> を詰めたい
 }
 ```
 
-SPEC の承認後は、確認なしで `spec.md` 以外の生成ファイルが自動で削除されます（内部では `roundtable.py cleanup --session-dir <D> --yes` を実行。既知の生成ファイル名だけが対象で、`spec.md` がなければ何もしません）。手動で確認したいときは `--yes` なしで実行すると、削除対象の一覧だけが表示されます。
+一時ファイルは次のタイミングで自動削除されます。
 
-Git リポジトリ内で使う場合は、`*_roundtable_*/` を `.gitignore` に追加してください（`.playwright-mcp/` の扱いは「2. Playwright MCP を登録する」を参照）。
+- SPEC の承認後: 確認なしで一時セッションを丸ごと削除します（内部では `roundtable.py cleanup --session-dir <D> --spec <S> --yes` を実行。`spec.md` がないとき、と一時セッション以外は何もしません）。手動で確認したいときは `--yes` なしで実行すると、削除対象の表示だけです。
+- 次のセッション開始時: 3 日より古い一時セッション（承認せずに中断したもの）を削除します。中断したセッションを再開できるのは 3 日以内です。
+
+Windows の「記憶域センサー」で一時ファイルの自動クリーンアップを有効にすると、OS 側でも掃除されます（任意）。
 
 ## ファイル構成
 
 | ファイル | 内容 |
 | --- | --- |
 | `SKILL.md` | スキルの定義と手順 |
-| `roundtable.py` | セッション作成（`init`）、HTML 生成（`render`）、不要ファイルの削除（`cleanup`） |
+| `roundtable.py` | 一時セッション作成と古いものの削除（`init`）、HTML 生成（`render`）、一時セッションの削除（`cleanup`） |
 | `roundtable_template.html` | 質問フォームのテンプレート（外部リソースなし） |
 | `THIRD_PARTY_NOTICES.md` | 取り込んだルールの出典とライセンス |
 
