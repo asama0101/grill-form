@@ -28,20 +28,24 @@ allowed-tools: Bash(python ${CLAUDE_SKILL_DIR}/roundtable.py *) Bash(python "${C
    回答は以降のラウンドの前提にし、SPEC では既存項目に吸収する（目的・ゴール→概要、障壁→リスク、制約→非目標・決定ログ）。
 3. 質問 JSON を書く。置き場所はスクラッチパッド（なければ `<D>`）。形式は `roundtable.py` の docstring を参照（`title`, `intro`, `questions[]` = `id`, `title`, `body`, `multi`, `options[]`（省略可）= `key`, `label`, `desc`、`recommended[]`, `reason`）。
 4. 生成: `python "${CLAUDE_SKILL_DIR}/roundtable.py" render --session-dir "<D>" --round <N> --input <json>` → `<D>/round-N.html`。
-5. Playwright MCP で `browser_navigate` により `file://` URL を開く（Windows は `file:///C:/.../round-N.html` のようにスラッシュ区切りにする。macOS/Linux は `file:///home/.../round-N.html`）。ユーザーに「回答して『送信』を押し、ターミナルに『完了』と入力してください」と伝えて待つ。
-6. 「完了」を受けたら、`browser_evaluate` で `() => ({ submitted: window.__submitted, md: window.__answersMd })` を実行する。
+5. Playwright MCP で `browser_navigate` により `file://` URL を開く（Windows は `file:///C:/.../round-N.html` のようにスラッシュ区切りにする。macOS/Linux は `file:///home/.../round-N.html`）。ユーザーに「回答して『送信』を押してください」と伝える。
+6. 送信を自動で待つ（ユーザーに「完了」と入力させない）。`browser_evaluate` で次の関数を実行すると、送信されるか約100秒たつまでブロックして結果を返す。
+   `() => new Promise(res => { const t0 = Date.now(); const id = setInterval(() => { if (window.__submitted || Date.now() - t0 > 100000) { clearInterval(id); res({ submitted: !!window.__submitted, md: window.__answersMd }); } }, 500); })`
+   - `submitted` が false なら、まだ送信されていない。同じ呼び出しを繰り返す（合計約30分、18回まで）。
+   - ユーザーがターミナルに何か入力した場合は、待ちをやめてその内容に従う（「完了」なら即座に下の確認へ進む）。
+   - 上限を超えたら、続行方法をユーザーに聞く。
    - `submitted` が true なら、`md` をそのまま `<D>/round-N.answers.md` に書く（Write）。
    - false（未送信・ウィンドウを閉じた等）なら、書かずに続行方法を聞く。コピーボタンで Markdown を貼ってもらう手もある。
 7. 回答を読んで design tree を更新し、次のラウンド（手順3〜）へ。ラウンドごとに新しい HTML を生成する。
-8. frontier が空になったら、合意内容を SPEC 案（概要・流れ・受入条件・非目標・リスク・決定ログ）にまとめ、`{"title","intro","summary"}` の JSON で `render --final --round <K>` を実行して `<D>/final-K.html` を開く。K は最終確認の版番号で、1 から始めて修正のたびに 1 増やす（前の版を上書きしない）。回答は同様に `<D>/final-K.answers.md` に書く。
-9. `承認` なら、承認された版の `summary` をそのまま `<D>/spec.md` に書く（Write）。別のセッションに SPEC を渡すときは、このファイルを使う。続けて、確認なしで `python "${CLAUDE_SKILL_DIR}/roundtable.py" cleanup --session-dir "<D>" --yes` を実行し、`spec.md` 以外の生成ファイル（`round-*.html`・`final-*.html`・回答・`final-summary.md`・`index.md`）を自動で削除する（`cleanup` は既知の生成ファイル名だけを消し、`spec.md` と他のファイルには触れない）。削除したファイル名と、残ったのが `spec.md` だけであることを報告する。`index.md` も消えるため、`index` は実行しない。
+8. frontier が空になったら、合意内容を SPEC 案（概要・流れ・受入条件・非目標・リスク・決定ログ）にまとめ、`{"title","intro","summary"}` の JSON で `render --final --round <K>` を実行して `<D>/final-K.html` を開く。K は最終確認の版番号で、1 から始めて修正のたびに 1 増やす（前の版を上書きしない）。送信の待ち方と回答の記録は手順6と同じ（`<D>/final-K.answers.md` に書く）。
+9. `承認` なら、承認された版の `summary` をそのまま `<D>/spec.md` に書く（Write）。別のセッションに SPEC を渡すときは、このファイルを使う。続けて、確認なしで `python "${CLAUDE_SKILL_DIR}/roundtable.py" cleanup --session-dir "<D>" --yes` を実行し、`spec.md` 以外の生成ファイル（`round-*.html`・`final-*.html`・回答）を自動で削除する（`cleanup` は既知の生成ファイル名だけを消し、`spec.md` と他のファイルには触れない）。削除したファイル名と、残ったのが `spec.md` だけであることを報告する。
    そのあと、必要なものだけを次の形式の**1通のメッセージ**で提案する（該当する項目がなければ出さない。「まだ実行していません」のような断りや内部用語は書かない）。
    ```
    SPEC を `<D>/spec.md` に保存し、それ以外の生成ファイルは削除しました。続けて次をしますか？（番号で答えてください。不要なら「なし」）
    1. `spec.md` を `docs/` にもコピーする — リポジトリ側にも残したいとき。
    2. `.gitignore` に追記する — セッションフォルダ（`*_roundtable_*/`）や `.playwright-mcp/` を Git の対象外にします。
    ```
-   該当しない項目（Git リポジトリ外なら両方、`.playwright-mcp/` がなければその追記など）は載せず、番号を詰める。選ばれた項目だけ実行する。どちらもセッションフォルダの外に書くので、選ばれていなければ書かない。
+   該当しない項目（Git リポジトリ外なら両方、`.playwright-mcp/` がなければその追記など）は載せず、番号を詰める。選ばれた項目だけ実行する（どちらもセッションフォルダの外に書くため、勝手に編集しない）。カレントフォルダに `.playwright-mcp/` ができていれば、README の「すでに Playwright MCP を登録している場合」の `--output-dir` 設定も一言案内する。
    `修正あり` ならコメントを反映し、K を 1 増やして手順8を繰り返す。
 
 ## 回答 Markdown の書式（ページ側が生成する）
@@ -60,8 +64,5 @@ round: <N>
 最終確認は frontmatter が `round` ではなく `final: <K>`（版番号）で、本文は `## 承認` に `判定`（承認 / 修正あり）と `コメント`。
 
 ## 注意
-- 外部サービスへ送らない。HTML はローカルだけ。
 - JS の `alert/confirm/prompt` は使わない（ブラウザ操作が止まる）。
 - `file://` が開けない場合は、`--allow-unrestricted-file-access` 付きで Playwright MCP が設定されているかを確認する。
-- 単一選択の質問には「選択をクリア」ボタンがある（選んだ後でも、選択なし＋自由入力に戻せる）。
-- セッションフォルダを Git リポジトリ内に作った場合は、`.gitignore` への `*_roundtable_*/` の追加を、手順9の後片付けの提案にまとめて出す（勝手に編集しない。別に聞き直さない）。カレントフォルダに `.playwright-mcp/`（Playwright MCP のページの記録）ができていれば、`.playwright-mcp/` の追加もあわせて提案し、README の「すでに Playwright MCP を登録している場合」の `--output-dir` 設定も一言案内する。
