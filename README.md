@@ -1,28 +1,27 @@
 # grill-form
 
-Claude Code 用のスキルです。grilling（質問攻めで合意を作る手法）を、ブラウザの HTML フォームで行います。候補選択・自由入力・保留で内容を詰め、最後に SPEC 形式（概要・流れ・受入条件・非目標・リスク・決定ログ）でまとめます。
+Claude Code 用のスキルです。計画や設計を詰めるための質問（grilling）を、ターミナルではなくブラウザの HTML フォームで行います。
+
+- 質問は「候補から選ぶ」「自由に書く」「保留にする」「聞き返す」で答えられます。
+- 決めることがなくなるまで質問を重ね、最後に SPEC（概要・流れ・受入条件・非目標・リスク・決定ログ）にまとめます。
+- 承認された SPEC だけが `spec.md` として残り、作業用ファイルは自動で削除されます。
 
 ## 必要なもの
 
 - [Claude Code](https://docs.claude.com/en/docs/claude-code)
-- Python 3.8 以上（標準ライブラリのみ使用）
-- [Playwright MCP](https://github.com/microsoft/playwright-mcp)（`--allow-unrestricted-file-access` 付き。ローカルの `file://` を開くため）
-
-grilling の進め方は `SKILL.md` に含まれているため、[grilling スキル](https://github.com/mattpocock/skills/tree/main/skills/productivity/grilling) のインストールは不要です（併用もできます）。
+- Python 3.8 以上（標準ライブラリのみ）
+- [Playwright MCP](https://github.com/microsoft/playwright-mcp)（ローカルの HTML を `file://` で開くために使います）
 
 ## インストール
 
 ### 1. スキルを配置する
 
-全プロジェクトで使う場合（ユーザースキル）:
-
 ```bash
 git clone https://github.com/asama0101/grill-form.git ~/.claude/skills/grill-form
 ```
 
-特定のプロジェクトだけで使う場合は、そのプロジェクトの `.claude/skills/grill-form` に clone します。
-
-更新は `git pull` で行います。
+- 特定のプロジェクトだけで使う場合は、そのプロジェクトの `.claude/skills/grill-form` に clone します。
+- 更新は `git pull` で行います。反映には Claude Code の再起動が必要です。
 
 ### 2. Playwright MCP を登録する
 
@@ -30,26 +29,11 @@ git clone https://github.com/asama0101/grill-form.git ~/.claude/skills/grill-for
 claude mcp add playwright --scope user -- npx @playwright/mcp@latest --allow-unrestricted-file-access --output-dir "$HOME/.playwright-mcp"
 ```
 
-- `--allow-unrestricted-file-access`: ローカルの `file://` の HTML を開くために必要です。
-- `--output-dir`: Playwright MCP がページを開くたびに保存する記録（`page-*.yml`）の置き場所です。指定しないと、作業フォルダに `.playwright-mcp/` ができることがあります。grill-form はこの記録を使わないので、作業フォルダの外にまとめます。必要なら `.gitignore` に `.playwright-mcp/` を追加してください。
-- ブラウザを指定する場合は `--browser chrome` などを追加します。
+- `--allow-unrestricted-file-access`: `file://` の HTML を開くために必要です。
+- `--output-dir`: Playwright MCP が保存する記録（`page-*.yml`）の置き場所です。指定しないと作業フォルダに `.playwright-mcp/` ができることがあります。
+- ブラウザを指定するときは `--browser chrome` などを追加します。
 
-#### すでに Playwright MCP を登録している場合
-
-`claude mcp add` は既存の登録を上書きしないため、一度削除してから登録し直します。
-
-```bash
-# 今の設定（スコープと引数）を確認する
-claude mcp get playwright
-
-# 確認したスコープで削除し、--output-dir を加えて登録し直す
-claude mcp remove playwright --scope user
-claude mcp add playwright --scope user -- npx @playwright/mcp@latest --allow-unrestricted-file-access --output-dir "$HOME/.playwright-mcp"
-```
-
-- 元の引数（`--browser chrome` など）は残してください。
-- スコープが `user` 以外（`local` / `project`）の場合は、`--scope` をそれに合わせます。
-- 反映には Claude Code の再起動が必要です。
+すでに `playwright` を登録している場合、`claude mcp add` は上書きしません。`claude mcp get playwright` で現在の引数とスコープを確認し、`claude mcp remove playwright --scope <スコープ>` で削除してから、元の引数を残したまま登録し直してください。
 
 ## 使い方
 
@@ -59,31 +43,28 @@ Claude Code で次のように頼みます。
 grill-form で <テーマ> を詰めたい
 ```
 
-1. Claude がラウンドごとに質問の HTML を生成し、ブラウザで開きます。
-2. 回答して「送信」を押します（Claude が送信を自動で検知して次へ進むので、ターミナルへの入力は不要です）。
-3. 決めることがなくなるまでラウンドを繰り返し、最後に SPEC 案を確認・承認します。
+「grill して」だけでは起動しません。`grill-form` や「HTML で grilling」と明示したときだけ使われます。
 
-通常の「grill」では起動しません（`grill-form` や「HTML で grilling」と明示したときだけ使います）。
+1. **事前確認（Round 0）**: 目的とゴール、障壁、制約を確認します。
+2. **質問ラウンド**: Claude が質問の HTML を生成してブラウザで開きます。回答して「送信」を押すと、Claude が自動で検知して次へ進みます（ターミナルへの入力は不要です）。
+3. **最終確認**: 決めることがなくなったら SPEC 案を表示します。「承認」で確定、「修正あり」ならコメントを反映して再提示します。
 
-質問が分からないときや確認したいときは、各質問の「聞き返し」欄に書いて送信します（状態は「要確認」）。次のラウンドで Claude が説明か補足質問を返します。選択肢のない質問は、自由記述だけで答えます。
+各質問には推奨案と理由が付きます。分からないときは「聞き返し」欄に書いて送信すると、次のラウンドで Claude が説明か補足質問を返します。
 
-## ファイルの保存先と削除
+## ファイルの保存先
 
-作業用のファイル（質問の HTML・回答の Markdown・質問 JSON）は、OS の一時フォルダ（Windows は `%TEMP%oundtable\<日時>_<テーマ>\`）に作られ、プロジェクトには何も作られません。
+| 種類 | 場所 | 寿命 |
+| --- | --- | --- |
+| 作業用ファイル（質問 JSON・HTML・回答 Markdown） | OS の一時フォルダ配下 `grill-form/<日時>_<テーマ>/` | 承認後に自動削除。未承認で中断したものは 3 日後に削除 |
+| 承認された SPEC | `<親>/<日時>_grill-form_<テーマ>/spec.md` | 残る。別セッションに SPEC を渡すときはこのファイルを使う |
 
-承認された SPEC だけが、次の場所に `spec.md` として保存されます。別の Claude Code セッションに SPEC を渡すときは、このファイルを渡します。
-
-```
-<親>/<日時>_grill-form_<テーマ>/spec.md
-```
-
-親フォルダは次の順で決まります。
+SPEC の親フォルダは次の順で決まります。
 
 1. `init` の `--parent` 引数
 2. 環境変数 `GRILL_FORM_DIR`（相対パスはカレントフォルダから解決）
 3. `docs`（既定。カレントフォルダ直下）
 
-常に同じ場所へ保存したい場合は、Claude Code の `settings.json` で環境変数を設定します。
+常に同じ場所に保存したい場合は、`settings.json` で環境変数を設定します。
 
 ```json
 {
@@ -93,21 +74,21 @@ grill-form で <テーマ> を詰めたい
 }
 ```
 
-一時ファイルは次のタイミングで自動削除されます。
-
-- SPEC の承認後: 確認なしで一時セッションを丸ごと削除します（内部では `grill_form.py cleanup --session-dir <D> --spec <S> --yes` を実行。`spec.md` がないとき、と一時セッション以外は何もしません）。手動で確認したいときは `--yes` なしで実行すると、削除対象の表示だけです。
-- 次のセッション開始時: 3 日より古い一時セッション（承認せずに中断したもの）を削除します。中断したセッションを再開できるのは 3 日以内です。
-
-Windows の「記憶域センサー」で一時ファイルの自動クリーンアップを有効にすると、OS 側でも掃除されます（任意）。
+SPEC の保存先をプロジェクトに置く場合、`.gitignore` に `*_grill-form_*/` を加えると、コミット対象から外せます。
 
 ## ファイル構成
 
 | ファイル | 内容 |
 | --- | --- |
 | `SKILL.md` | スキルの定義と手順 |
-| `grill_form.py` | 一時セッション作成と古いものの削除（`init`）、HTML 生成（`render`）、一時セッションの削除（`cleanup`） |
+| `grill_form.py` | `init`（一時セッションの作成と古いものの削除）、`render`（HTML 生成）、`cleanup`（一時セッションの削除） |
 | `grill_form_template.html` | 質問フォームのテンプレート（外部リソースなし） |
 | `THIRD_PARTY_NOTICES.md` | 取り込んだルールの出典とライセンス |
+
+## トラブルシューティング
+
+- **`file://` が開けない**: Playwright MCP に `--allow-unrestricted-file-access` が付いているか確認してください。
+- **送信が検知されない**: 約 30 分待っても送信がない場合、Claude が続行方法を聞きます。フォームのコピーボタンで回答 Markdown を貼ることもできます。
 
 ## ライセンス
 
