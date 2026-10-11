@@ -8,10 +8,8 @@
                               質問 JSON から round-N.html を生成し、パスを出力する。
                               --final のときは N を最終確認の版番号とし、final-N.html を生成する
                               （修正のたびに版を上げ、前の版を上書きしない）
-  index  --session-dir D      フォルダ内の HTML と回答を並べた index.md を（再）生成する
   cleanup --session-dir D [--yes]
-                              spec.md 以外の roundtable 生成ファイル（round-N / final-N の HTML と回答、
-                              final-summary.md、index.md）を削除対象として一覧する。--yes を付けたときだけ削除する。
+                              spec.md 以外の roundtable 生成ファイル（round-N / final-N の HTML と回答）を削除対象として一覧する。--yes を付けたときだけ削除する。
                               spec.md がなければ何もしない（承認前は消さない）
 
 質問 JSON:
@@ -72,45 +70,7 @@ def cmd_render(args) -> int:
     return 0
 
 
-def numbered(d: Path, prefix: str) -> list:
-    # <prefix>-N.html / <prefix>-N.answers.md の N を昇順で返す
-    pat = re.compile(rf"{prefix}-(\d+)\.(?:html|answers\.md)$")
-    return sorted({int(m.group(1)) for p in d.iterdir() if (m := pat.match(p.name))})
-
-
-def links(d: Path, stem: str, html_label: str) -> str:
-    parts = [f"[{label}]({name})" for label, name in ((html_label, f"{stem}.html"), ("回答", f"{stem}.answers.md"))
-             if (d / name).exists()]
-    return f"- {stem}: " + " / ".join(parts)
-
-
-def cmd_index(args) -> int:
-    d = Path(args.session_dir)
-    rounds = numbered(d, "round")
-    finals = numbered(d, "final")
-    lines = [
-        "---",
-        "type: doc",
-        f"status: {'approved' if (d / 'spec.md').exists() else 'draft'}",
-        f"created: {datetime.date.today().isoformat()}",
-        "---",
-        f"# {d.name}",
-        "",
-        "## ラウンド",
-    ]
-    lines += [links(d, f"round-{n}", "質問") for n in rounds] or ["- （まだありません）"]
-    lines += ["", "## 最終確認"]
-    if (d / "spec.md").exists():
-        lines.append("- [spec](spec.md)（承認済みの SPEC）")
-    lines += [links(d, f"final-{n}", "SPEC 案") for n in finals]
-    if (d / "final-summary.md").exists():
-        lines.append("- [final-summary](final-summary.md)")
-    (d / "index.md").write_text("\n".join(lines) + "\n", encoding="utf-8")
-    print(d / "index.md")
-    return 0
-
-
-GENERATED = re.compile(r"(?:round|final)-\d+\.(?:html|answers\.md)|final-summary\.md|index\.md")
+GENERATED = re.compile(r"(?:round|final)-\d+\.(?:html|answers\.md)")
 
 
 def cmd_cleanup(args) -> int:
@@ -150,10 +110,6 @@ def main() -> int:
     p.add_argument("--final", action="store_true")
     p.add_argument("--input", required=True)
     p.set_defaults(fn=cmd_render)
-
-    p = sub.add_parser("index")
-    p.add_argument("--session-dir", required=True)
-    p.set_defaults(fn=cmd_index)
 
     p = sub.add_parser("cleanup")
     p.add_argument("--session-dir", required=True)

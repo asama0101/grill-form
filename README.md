@@ -60,7 +60,7 @@ roundtable で <テーマ> を詰めたい
 ```
 
 1. Claude がラウンドごとに質問の HTML を生成し、ブラウザで開きます。
-2. 回答して「送信」を押し、ターミナルに「完了」と入力します。
+2. 回答して「送信」を押します（Claude が送信を自動で検知して次へ進むので、ターミナルへの入力は不要です）。
 3. 決めることがなくなるまでラウンドを繰り返し、最後に SPEC 案を確認・承認します。
 
 通常の「grill」では起動しません（`roundtable` や「HTML で grilling」と明示したときだけ使います）。
@@ -87,14 +87,14 @@ roundtable で <テーマ> を詰めたい
 
 SPEC の承認後は、確認なしで `spec.md` 以外の生成ファイルが自動で削除されます（内部では `roundtable.py cleanup --session-dir <D> --yes` を実行。既知の生成ファイル名だけが対象で、`spec.md` がなければ何もしません）。手動で確認したいときは `--yes` なしで実行すると、削除対象の一覧だけが表示されます。
 
-Git リポジトリ内で使う場合は、必要に応じて `*_roundtable_*/` を `.gitignore` に追加してください。Playwright MCP を `--output-dir` なしで登録している場合は、作業フォルダに `.playwright-mcp/` もできるため、あわせて追加してください（または「2. Playwright MCP を登録する」の手順で `--output-dir` を設定します）。
+Git リポジトリ内で使う場合は、`*_roundtable_*/` を `.gitignore` に追加してください（`.playwright-mcp/` の扱いは「2. Playwright MCP を登録する」を参照）。
 
 ## ファイル構成
 
 | ファイル | 内容 |
 | --- | --- |
 | `SKILL.md` | スキルの定義と手順 |
-| `roundtable.py` | セッション作成（`init`）、HTML 生成（`render`）、索引作成（`index`）、不要ファイルの削除（`cleanup`） |
+| `roundtable.py` | セッション作成（`init`）、HTML 生成（`render`）、不要ファイルの削除（`cleanup`） |
 | `roundtable_template.html` | 質問フォームのテンプレート（外部リソースなし） |
 | `THIRD_PARTY_NOTICES.md` | 取り込んだルールの出典とライセンス |
 
