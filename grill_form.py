@@ -3,9 +3,9 @@
 サブコマンド:
   init   --theme T [--parent P]  一時セッションフォルダ（OS の一時フォルダ配下）を作り、次の2行を出力する。
                               1行目: 一時セッションのパス（HTML・回答・質問 JSON を置く）
-                              2行目: SPEC の保存先 <親>/<日時>_grill-form_<テーマ>/spec.md（承認時に書く）
-                              （親フォルダの決め方: --parent > 環境変数 GRILL_FORM_DIR > docs。
-                               相対パスはカレントフォルダから解決する）
+                              2行目: SPEC の保存先 <親>/<日時>_<テーマ>.md（承認時に書く）
+                              （親フォルダの決め方: --parent > 環境変数 GRILL_FORM_DIR > docs/specs。
+                               相対パスは git のルート（なければカレントフォルダ）から解決する）
                               作成時に、3 日より古い一時セッションを削除する
   render --session-dir D --round N [--final] --input J.json
                               質問 JSON から round-N.html を生成し、パスを出力する。
@@ -29,22 +29,32 @@ import json
 import os
 import re
 import shutil
+import subprocess
 import sys
 import tempfile
 import time
 from pathlib import Path
 
 ENV_DIR = "GRILL_FORM_DIR"
-DEFAULT_DIR = "docs"
+DEFAULT_DIR = "docs/specs"
 TEMP_ROOT_NAME = "grill-form"
 KEEP_DAYS = 3
 TEMPLATE = Path(__file__).with_name("grill_form_template.html")
 INVALID = re.compile(r'[\\/:*?"<>|\s]+')
 
 
+def base_dir() -> Path:
+    # 相対パスの基準。git のルート、なければカレントフォルダ
+    try:
+        top = subprocess.run(["git", "rev-parse", "--show-toplevel"], capture_output=True, text=True, check=True).stdout.strip()
+        return Path(top)
+    except (OSError, subprocess.CalledProcessError):
+        return Path.cwd()
+
+
 def session_root(parent) -> Path:
-    root = parent or os.environ.get(ENV_DIR) or DEFAULT_DIR
-    return Path(root).expanduser().resolve()
+    root = Path(parent or os.environ.get(ENV_DIR) or DEFAULT_DIR).expanduser()
+    return root if root.is_absolute() else (base_dir() / root).resolve()
 
 
 def temp_root() -> Path:
@@ -68,7 +78,7 @@ def cmd_init(args) -> int:
     prune_old(root)
     tmp = root / f"{stamp}_{theme}"
     tmp.mkdir(parents=True, exist_ok=True)
-    spec = session_root(args.parent) / f"{stamp}_grill-form_{theme}" / "spec.md"
+    spec = session_root(args.parent) / f"{stamp}_{theme}.md"
     print(tmp)
     print(spec)
     return 0
@@ -103,7 +113,7 @@ def cmd_cleanup(args) -> int:
         print(f"{d} は grill-form の一時セッションではないため何もしません。", file=sys.stderr)
         return 1
     if not Path(args.spec).exists():
-        print("spec.md がないため何もしません（承認前は削除しません）。", file=sys.stderr)
+        print("SPEC がないため何もしません（承認前は削除しません）。", file=sys.stderr)
         return 1
     if not d.is_dir():
         print("削除対象はありません。")
@@ -111,7 +121,7 @@ def cmd_cleanup(args) -> int:
     print(f"削除対象{'' if args.yes else '（--yes で削除）'}: {d}")
     if args.yes:
         shutil.rmtree(d)
-        print("削除しました。残り: spec.md")
+        print("削除しました。SPEC は残っています。")
     return 0
 
 
