@@ -1,10 +1,10 @@
-"""roundtable スキル用のスクリプト。
+"""grill-form スキル用のスクリプト。
 
 サブコマンド:
   init   --theme T [--parent P]  一時セッションフォルダ（OS の一時フォルダ配下）を作り、次の2行を出力する。
                               1行目: 一時セッションのパス（HTML・回答・質問 JSON を置く）
-                              2行目: SPEC の保存先 <親>/<日時>_roundtable_<テーマ>/spec.md（承認時に書く）
-                              （親フォルダの決め方: --parent > 環境変数 ROUNDTABLE_DIR > docs。
+                              2行目: SPEC の保存先 <親>/<日時>_grill-form_<テーマ>/spec.md（承認時に書く）
+                              （親フォルダの決め方: --parent > 環境変数 GRILL_FORM_DIR > docs。
                                相対パスはカレントフォルダから解決する）
                               作成時に、3 日より古い一時セッションを削除する
   render --session-dir D --round N [--final] --input J.json
@@ -34,11 +34,11 @@ import tempfile
 import time
 from pathlib import Path
 
-ENV_DIR = "ROUNDTABLE_DIR"
+ENV_DIR = "GRILL_FORM_DIR"
 DEFAULT_DIR = "docs"
-TEMP_ROOT_NAME = "roundtable"
+TEMP_ROOT_NAME = "grill-form"
 KEEP_DAYS = 3
-TEMPLATE = Path(__file__).with_name("roundtable_template.html")
+TEMPLATE = Path(__file__).with_name("grill_form_template.html")
 INVALID = re.compile(r'[\\/:*?"<>|\s]+')
 
 
@@ -68,7 +68,7 @@ def cmd_init(args) -> int:
     prune_old(root)
     tmp = root / f"{stamp}_{theme}"
     tmp.mkdir(parents=True, exist_ok=True)
-    spec = session_root(args.parent) / f"{stamp}_roundtable_{theme}" / "spec.md"
+    spec = session_root(args.parent) / f"{stamp}_grill-form_{theme}" / "spec.md"
     print(tmp)
     print(spec)
     return 0
@@ -100,7 +100,7 @@ def cmd_cleanup(args) -> int:
     d = Path(args.session_dir).resolve()
     # 一時セッション以外（プロジェクト内など）は消さない
     if d.parent != temp_root():
-        print(f"{d} は roundtable の一時セッションではないため何もしません。", file=sys.stderr)
+        print(f"{d} は grill-form の一時セッションではないため何もしません。", file=sys.stderr)
         return 1
     if not Path(args.spec).exists():
         print("spec.md がないため何もしません（承認前は削除しません）。", file=sys.stderr)
