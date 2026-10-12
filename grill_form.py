@@ -120,7 +120,16 @@ def cmd_cleanup(args) -> int:
         return 0
     print(f"削除対象{'' if args.yes else '（--yes で削除）'}: {d}")
     if args.yes:
-        shutil.rmtree(d)
+        try:
+            shutil.rmtree(d)
+        except OSError as e:
+            print(
+                f"削除できませんでした: {e}\n"
+                "シェルのカレントフォルダが一時セッション内にないか確認してください。"
+                "SPEC は保存済みで、残った一時セッションは次回の init で古いものから自動削除されます。",
+                file=sys.stderr,
+            )
+            return 1
         print("削除しました。SPEC は残っています。")
     return 0
 
