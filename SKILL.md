@@ -20,26 +20,32 @@ allowed-tools: Bash(python ${CLAUDE_SKILL_DIR}/grill_form.py *) Bash(python "${C
 - 質問 ID（`Q1`, `Q2`…）はセッション通しで一意にする（ラウンドでリセットしない）。
 
 ## 手順
-1. セッション作成: `python "${CLAUDE_SKILL_DIR}/grill_form.py" init --theme "<テーマ>"` を実行する。テーマは ASCII の短い名前にする（Windows の Git Bash 経由の日本語引数は文字化けするため。例: `api-design`）。出力は2行。1行目は OS の一時フォルダ配下の一時セッション（以下 `<D>`。HTML・回答・質問 JSON など、最終成果物以外はすべてここに置く）、2行目は SPEC の保存先（以下 `<S>`。承認まで作らない）。`<S>` は `<親>/<日時>_<テーマ>.md` で、親は `--parent` > 環境変数 `GRILL_FORM_DIR` > `docs/specs` の順で決まる（相対パスは git のルートから解決）。`init` は 3 日より古い一時セッションも削除する。
-2. 事前確認（Round 0）: 通常の質問に入る前に、`--round 0` で次の3点を1ラウンドで確認する。依頼文や環境から分かる内容は推奨案として埋め、ユーザーには確認・修正だけしてもらう（毎回行う。小さい依頼でも省略しない）。質問 JSON・生成・回答の記録は手順3〜6と同じ。
+1. セッション作成: `python "${CLAUDE_SKILL_DIR}/grill_form.py" init --theme "<テーマ>"` を実行する。テーマは ASCII の短い名前にする（Windows の Git Bash 経由の日本語引数は文字化けするため。例: `api-design`）。出力は2行。1行目は OS の一時フォルダ配下の一時セッション（以下 `<D>`。HTML・回答・質問 JSON など、最終成果物以外はすべてここに置く）、2行目は SPEC の保存先（以下 `<S>`。承認まで作らない）。`<S>` は `<親>/<日時>_<テーマ>/SPEC.md` で、親は `--parent` > 環境変数 `GRILL_FORM_DIR` > `grill-specs` の順で決まる（相対パスは git のルートから解決）。承認後は、この `<S>` と同じフォルダに依頼文（`request.md`）と入力ファイルも残る。`init` は 3 日より古い一時セッションも削除する。
+2. 入力フォーム（毎回行う）: 依頼文とファイルを集める。`python "${CLAUDE_SKILL_DIR}/grill_form.py" render --session-dir "<D>" --intake` で `<D>/intake.html` を生成し、手順6〜7と同じ方法で開いて送信を待つ（回答は `<D>/intake.answers.md` に書く）。フォームには依頼文、ファイル選択（複数）、ファイルパス（1 行 1 つ）の欄がある。送信後、次のように取り込む。
+   - `## 依頼文` の本文を `<D>/request.md` に書く（Write）。
+   - `## ファイル` の `grill-in-N.拡張子 ← 元のファイル名` は、送信時にブラウザがダウンロードしたファイル。Playwright MCP の送信時の Events にある `Downloaded file ... to "<保存先>"` の保存先を使い、`python "${CLAUDE_SKILL_DIR}/grill_form.py" stage --session-dir "<D>" --file "<保存先>" --name "<元のファイル名>"` で取り込む。取り込んだら保存先のファイルは削除する。
+   - `## ファイルパス` の各パスは、存在を確認して同じ `stage --file "<パス>"` で取り込む（`--name` は省略）。存在しない・フォルダのパスは、ユーザーに再入力か対象ファイルの指定を求める。
+   - 取り込んだファイルは `<D>/inputs/` から読み、内容を以降の前提にする。PDF・PPTX・XLSX は pdf・pptx・xlsx スキルで読む。図形が重要な資料は、ページを画像にして見る。画像化ツール（soffice・pdftoppm など）がなければ、文字と図形の構造だけで読んだことをユーザーに伝える。量が多いときは読み取りをサブエージェントに任せてよい。
+   - 入力が空（依頼文・ファイル・パスのいずれもなし）のフォームは送信できない。ユーザーが入力不要と言ったときだけ、この手順を省略する。
+3. 事前確認（Round 0）: 通常の質問に入る前に、`--round 0` で次の3点を1ラウンドで確認する。依頼文・入力ファイル・環境から分かる内容は推奨案として埋め、ユーザーには確認・修正だけしてもらう（毎回行う。小さい依頼でも省略しない）。質問 JSON・生成・回答の記録は手順4〜7と同じ。
    - 目的とゴール: 何のために行い、何ができたら完了か（完了の判定基準）。
    - 障壁: ゴールに至るまでの障害・懸念・つまずきそうな点を、ユーザーにヒアリングする。
    - 制約: 期限・予算・技術・既存資産・変更してはいけないもの・守るべきルールなど。
    回答は以降のラウンドの前提にし、SPEC では既存項目に吸収する（目的・ゴール→概要、障壁→リスク、制約→非目標・決定ログ）。
-3. 質問 JSON を書く。置き場所は `<D>`。形式は `grill_form.py` の docstring を参照（`title`, `intro`, `questions[]` = `id`, `title`, `body`, `multi`, `options[]`（省略可）= `key`, `label`, `desc`、`recommended[]`, `reason`）。
-4. 生成: `python "${CLAUDE_SKILL_DIR}/grill_form.py" render --session-dir "<D>" --round <N> --input <json>` → `<D>/round-N.html`。
-5. Playwright MCP で `browser_navigate` により `file://` URL を開く（Windows は `file:///C:/.../round-N.html` のようにスラッシュ区切りにする。macOS/Linux は `file:///home/.../round-N.html`）。ユーザーに「回答して『送信』を押してください」と伝える。
-6. 送信を自動で待つ（ユーザーに「完了」と入力させない）。`browser_evaluate` で次の関数を実行すると、送信されるか約100秒たつまでブロックして結果を返す。
+4. 質問 JSON を書く。置き場所は `<D>`。形式は `grill_form.py` の docstring を参照（`title`, `intro`, `questions[]` = `id`, `title`, `body`, `multi`, `options[]`（省略可）= `key`, `label`, `desc`、`recommended[]`, `reason`）。
+5. 生成: `python "${CLAUDE_SKILL_DIR}/grill_form.py" render --session-dir "<D>" --round <N> --input <json>` → `<D>/round-N.html`。
+6. Playwright MCP で `browser_navigate` により `file://` URL を開く（Windows は `file:///C:/.../round-N.html` のようにスラッシュ区切りにする。macOS/Linux は `file:///home/.../round-N.html`）。ユーザーに「回答して『送信』を押してください」と伝える。Playwright MCP の `browser_*` ツールが使えない場合は、README の「Playwright MCP を登録する」を案内して止まる（スキルには MCP を同梱していない）。
+7. 送信を自動で待つ（ユーザーに「完了」と入力させない）。`browser_evaluate` で次の関数を実行すると、送信されるか約100秒たつまでブロックして結果を返す。
    `() => new Promise(res => { const t0 = Date.now(); const id = setInterval(() => { if (window.__submitted || Date.now() - t0 > 100000) { clearInterval(id); res({ submitted: !!window.__submitted, md: window.__answersMd }); } }, 500); })`
    - `submitted` が false なら、まだ送信されていない。同じ呼び出しを繰り返す（合計約30分、18回まで）。
    - ユーザーがターミナルに何か入力した場合は、待ちをやめてその内容に従う（「完了」なら即座に下の確認へ進む）。
    - 上限を超えたら、続行方法をユーザーに聞く。
    - `submitted` が true なら、`md` をそのまま `<D>/round-N.answers.md` に書く（Write）。
    - false（未送信・ウィンドウを閉じた等）なら、書かずに続行方法を聞く。コピーボタンで Markdown を貼ってもらう手もある。
-7. 回答を読んで design tree を更新し、次のラウンド（手順3〜）へ。ラウンドごとに新しい HTML を生成する。
-8. frontier が空になったら、合意内容を SPEC 案（概要・流れ・受入条件・非目標・リスク・決定ログ）にまとめ、`{"title","intro","summary"}` の JSON で `render --final --round <K>` を実行して `<D>/final-K.html` を開く。K は最終確認の版番号で、1 から始めて修正のたびに 1 増やす（前の版を上書きしない）。送信の待ち方と回答の記録は手順6と同じ（`<D>/final-K.answers.md` に書く）。
-9. `承認` なら、承認された版の `summary` をそのまま `<S>` に書く（Write。フォルダは自動で作られる）。別のセッションに SPEC を渡すときは、このファイルを使う。続けて、確認なしで `python "${CLAUDE_SKILL_DIR}/grill_form.py" cleanup --session-dir "<D>" --spec "<S>" --yes` を実行し、一時セッション `<D>` を丸ごと削除する（`cleanup` は一時セッション以外と、`<S>` がないときは何もしない）。`<S>` のパスを報告し、プロジェクトに残ったのがこの SPEC だけであることを伝える。
-   `修正あり` ならコメントを反映し、K を 1 増やして手順8を繰り返す。
+8. 回答を読んで design tree を更新し、次のラウンド（手順4〜）へ。ラウンドごとに新しい HTML を生成する。
+9. frontier が空になったら、合意内容を SPEC 案（概要・流れ・受入条件・非目標・リスク・決定ログ）にまとめ（概要の中に「入力」として、依頼文の要約と、入力ファイルの一覧（ファイル名・元のパス）を入れる）、`{"title","intro","summary"}` の JSON で `render --final --round <K>` を実行して `<D>/final-K.html` を開く。K は最終確認の版番号で、1 から始めて修正のたびに 1 増やす（前の版を上書きしない）。送信の待ち方と回答の記録は手順7と同じ（`<D>/final-K.answers.md` に書く）。
+10. `承認` なら、承認された版の `summary` をそのまま `<S>` に書く（Write。フォルダは自動で作られる）。別のセッションに SPEC を渡すときは、このファイルを使う。続けて、確認なしで `python "${CLAUDE_SKILL_DIR}/grill_form.py" cleanup --session-dir "<D>" --spec "<S>" --yes` を実行する。`cleanup` は `request.md` と `inputs/` の中身を `<S>` と同じフォルダへ移し、一時セッション `<D>` を丸ごと削除する（一時セッション以外と、`<S>` がないときは何もしない）。`<S>` のパスを報告し、そのフォルダに残ったもの（SPEC.md・request.md・入力ファイル）を伝える。質問と回答の履歴は残らない。
+   `修正あり` ならコメントを反映し、K を 1 増やして手順9を繰り返す。
 
 ## 回答 Markdown の書式（ページ側が生成する）
 ```
@@ -54,6 +60,7 @@ round: <N>
 - 聞き返し: …
 - 状態: 回答 / 保留 / 要確認 / 未回答
 ```
+入力フォームは frontmatter が `intake: 1` で、本文は `## 依頼文`・`## ファイル`・`## ファイルパス` の 3 節。
 最終確認は frontmatter が `round` ではなく `final: <K>`（版番号）で、本文は `## 承認` に `判定`（承認 / 修正あり）と `コメント`。
 
 ## 注意

@@ -78,6 +78,11 @@ button.clear { font-size: 13px; padding: 2px 12px; margin: 2px 0 4px; color: var
 #status.warn { color: var(--warn); }
 #status.ok { color: var(--rec); font-weight: 700; }
 .approve label { margin-right: 18px; cursor: pointer; }
+.files { list-style: none; margin: 8px 0 0; padding: 0; }
+.files li { display: flex; gap: 10px; align-items: center; padding: 4px 10px; margin: 4px 0;
+  border: 1px solid var(--border); border-radius: 8px; font-size: 14px; }
+.files .size { color: var(--muted); font-size: 12px; margin-left: auto; }
+.files button { font-size: 12px; padding: 0 10px; }
 </style>
 </head>
 <body>
@@ -103,8 +108,8 @@ button.clear { font-size: 13px; padding: 2px 12px; margin: 2px 0 4px; color: var
   document.title = data.title || 'grill-form';
   document.getElementById('title').textContent = data.title || 'grill-form';
   document.getElementById('meta').textContent =
-    'セッション: ' + data.session + ' ／ ラウンド: ' + data.round +
-    (data.mode === 'final' ? ' ／ 最終確認' : '');
+    'セッション: ' + data.session + (data.mode === 'intake' ? '' : ' ／ ラウンド: ' + data.round) +
+    (data.mode === 'intake' ? ' ／ 入力フォーム' : data.mode === 'final' ? ' ／ 最終確認' : '');
 
   function el(tag, cls, text) {
     var e = document.createElement(tag);
@@ -330,7 +335,88 @@ button.clear { font-size: 13px; padding: 2px 12px; margin: 2px 0 4px; color: var
     };
   }
 
-  if (data.mode === 'final') {
+  // 入力フォーム: 依頼文・ファイル（複数）・ファイルパス
+  var intakeGet = null;
+  var picked = [];
+  function extOf(name) {
+    var m = /\.[A-Za-z0-9]{1,8}$/.exec(name);
+    return m ? m[0].toLowerCase() : '';
+  }
+  function fmtSize(n) {
+    return n >= 1048576 ? (n / 1048576).toFixed(1) + ' MB' : n >= 1024 ? Math.round(n / 1024) + ' KB' : n + ' B';
+  }
+  function renderIntake() {
+    content.appendChild(card_md('intro', data.intro ||
+      '依頼文と、参考にしたいファイルを渡してください。どれか 1 つだけでも構いません。\n' +
+      '**ファイル**は、選んだものを送信時にブラウザがダウンロード（保存）し、Claude が受け取ります。' +
+      '大きいファイルや保存場所が決まっているファイルは**ファイルパス**欄に書くと、Claude が直接読みます。'));
+    var card = el('section', 'q');
+    card.appendChild(el('h2', '', '依頼文'));
+    var f1 = el('label', 'field', '何を詰めたいか、背景、分かっている制約など（自由記述）');
+    var req = document.createElement('textarea');
+    req.style.minHeight = '120px';
+    f1.appendChild(req);
+    card.appendChild(f1);
+    content.appendChild(card);
+
+    var fcard = el('section', 'q');
+    fcard.appendChild(el('h2', '', 'ファイル'));
+    var pick = document.createElement('input');
+    pick.type = 'file'; pick.multiple = true;
+    fcard.appendChild(pick);
+    var list = el('ul', 'files');
+    fcard.appendChild(list);
+    function drawFiles() {
+      list.textContent = '';
+      picked.forEach(function (f, i) {
+        var li = el('li');
+        li.appendChild(el('span', '', f.name));
+        li.appendChild(el('span', 'size', fmtSize(f.size)));
+        var rm = el('button', '', '削除'); rm.type = 'button';
+        rm.addEventListener('click', function () { picked.splice(i, 1); drawFiles(); });
+        li.appendChild(rm);
+        list.appendChild(li);
+      });
+    }
+    pick.addEventListener('change', function () {
+      Array.prototype.forEach.call(pick.files, function (f) { picked.push(f); });
+      pick.value = '';
+      drawFiles();
+    });
+    content.appendChild(fcard);
+
+    var pcard = el('section', 'q');
+    pcard.appendChild(el('h2', '', 'ファイルパス'));
+    var f2 = el('label', 'field', '1 行に 1 つ。例: C:/Users/.../資料.pptx');
+    var paths = document.createElement('textarea');
+    f2.appendChild(paths);
+    pcard.appendChild(f2);
+    content.appendChild(pcard);
+
+    intakeGet = function () {
+      return {
+        request: req.value.trim(),
+        files: picked.slice(),
+        paths: paths.value.split(/\r?\n/).map(function (l) { return l.trim(); }).filter(Boolean)
+      };
+    };
+  }
+
+  // 選んだファイルを連番の名前でダウンロードする（Playwright MCP が出力先フォルダに保存する）
+  function downloadPicked(files) {
+    files.forEach(function (f, i) {
+      var a = document.createElement('a');
+      a.href = URL.createObjectURL(f);
+      a.download = 'grill-in-' + (i + 1) + extOf(f.name);
+      document.body.appendChild(a);
+      a.click();
+      a.remove();
+    });
+  }
+
+  if (data.mode === 'intake') {
+    renderIntake();
+  } else if (data.mode === 'final') {
     renderFinal();
   } else {
     if (data.intro) content.appendChild(card_md('intro', data.intro));
@@ -339,7 +425,21 @@ button.clear { font-size: 13px; padding: 2px 12px; margin: 2px 0 4px; color: var
 
   function build() {
     // 最終確認は round ではなく final（版番号）として書き、ラウンドの回答と区別する
-    var head = '---\nsession: ' + data.session + '\n' + (data.mode === 'final' ? 'final: ' : 'round: ') + data.round + '\n---\n';
+    var head = '---\nsession: ' + data.session + '\n' +
+      (data.mode === 'intake' ? 'intake: 1' : (data.mode === 'final' ? 'final: ' : 'round: ') + data.round) + '\n---\n';
+    if (data.mode === 'intake') {
+      var it = intakeGet();
+      if (!it.request && !it.files.length && !it.paths.length) {
+        return { error: '依頼文・ファイル・ファイルパスのどれかを入力してください。' };
+      }
+      var md = head + '## 依頼文\n' + it.request + '\n\n## ファイル\n';
+      it.files.forEach(function (f, i) {
+        md += '- grill-in-' + (i + 1) + extOf(f.name) + ' ← ' + f.name + '（' + f.size + ' バイト）\n';
+      });
+      md += '\n## ファイルパス\n';
+      it.paths.forEach(function (pth) { md += '- ' + pth + '\n'; });
+      return { md: md, files: it.files };
+    }
     if (data.mode === 'final') {
       var a = approveGet();
       if (!a.verdict) return { error: '「承認」か「修正あり」を選んでください。' };
@@ -360,15 +460,18 @@ button.clear { font-size: 13px; padding: 2px 12px; margin: 2px 0 4px; color: var
       setStatus('未回答: ' + r.unanswered.join(', ') + '。このままなら、もう一度「送信」を押してください。', 'warn');
       return;
     }
+    if (r.files && r.files.length) downloadPicked(r.files);
     window.__answersMd = r.md;
     window.__submitted = true;
-    setStatus('送信しました。Claude が自動で受け取ります。', 'ok');
+    setStatus('送信しました。' + (r.files && r.files.length ? 'ファイル ' + r.files.length + ' 件をダウンロードしました。' : '') + 'Claude が自動で受け取ります。', 'ok');
   });
 
   document.getElementById('copy').addEventListener('click', function () {
     var r = build();
     if (r.error) { setStatus(r.error, 'warn'); return; }
-    var done = function () { setStatus('Markdown をコピーしました。', 'ok'); };
+    var done = function () {
+      setStatus('Markdown をコピーしました。' + (r.files && r.files.length ? '（選んだファイルは含まれません。ファイルパス欄を使ってください）' : ''), 'ok');
+    };
     var fallback = function () {
       var t = document.createElement('textarea');
       t.value = r.md; document.body.appendChild(t); t.select();
