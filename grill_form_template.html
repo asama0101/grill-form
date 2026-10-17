@@ -93,6 +93,7 @@ button.clear { font-size: 13px; padding: 2px 12px; margin: 2px 0 4px; color: var
   <div class="bar">
     <button class="primary" id="submit">送信</button>
     <button id="copy">Markdown をコピー</button>
+    <button id="abort">中止</button>
     <span id="status"></span>
   </div>
 </main>
@@ -355,6 +356,7 @@ button.clear { font-size: 13px; padding: 2px 12px; margin: 2px 0 4px; color: var
     var f1 = el('label', 'field', '何を詰めたいか、背景、分かっている制約など（自由記述）');
     var req = document.createElement('textarea');
     req.style.minHeight = '120px';
+    req.value = data.request || '';
     f1.appendChild(req);
     card.appendChild(f1);
     content.appendChild(card);
@@ -464,6 +466,22 @@ button.clear { font-size: 13px; padding: 2px 12px; margin: 2px 0 4px; color: var
     window.__answersMd = r.md;
     window.__submitted = true;
     setStatus('送信しました。' + (r.files && r.files.length ? 'ファイル ' + r.files.length + ' 件をダウンロードしました。' : '') + 'Claude が自動で受け取ります。', 'ok');
+  });
+
+  // 中止: 2回目の押下で確定する（alert/confirm はブラウザ操作が止まるので使わない）
+  var abortArmed = false;
+  document.getElementById('abort').addEventListener('click', function () {
+    if (!abortArmed) {
+      abortArmed = true;
+      setStatus('grilling を中止します。よければ、もう一度「中止」を押してください。', 'warn');
+      return;
+    }
+    var head = '---\nsession: ' + data.session + '\n' +
+      (data.mode === 'intake' ? 'intake: 1' : (data.mode === 'final' ? 'final: ' : 'round: ') + data.round) + '\n---\n';
+    window.__answersMd = head + '## 中止\n- 判定: 中止\n';
+    window.__aborted = true;
+    window.__submitted = true;
+    setStatus('中止しました。Claude が自動で受け取ります。', 'ok');
   });
 
   document.getElementById('copy').addEventListener('click', function () {
