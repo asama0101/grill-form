@@ -21,7 +21,7 @@ allowed-tools: Bash(python ${CLAUDE_SKILL_DIR}/grill_form.py *) Bash(python "${C
 
 ## 手順
 1. セッション作成: `python "${CLAUDE_SKILL_DIR}/grill_form.py" init --theme "<テーマ>"` を実行する。テーマは ASCII の短い名前にする（Windows の Git Bash 経由の日本語引数は文字化けするため。例: `api-design`）。出力は2行。1行目は OS の一時フォルダ配下の一時セッション（以下 `<D>`。HTML・回答・質問 JSON など、最終成果物以外はすべてここに置く）、2行目は SPEC の保存先（以下 `<S>`。承認まで作らない）。`<S>` は `<親>/<日時>_<テーマ>/SPEC.md` で、親は `--parent` > 環境変数 `GRILL_FORM_DIR` > `grill-specs` の順で決まる（相対パスは git のルートから解決）。承認後は、この `<S>` と同じフォルダに依頼文（`request.md`）と入力ファイルも残る。`init` は 3 日より古い一時セッションも削除する。
-2. 入力フォーム（毎回行う）: 依頼文とファイルを集める。`python "${CLAUDE_SKILL_DIR}/grill_form.py" render --session-dir "<D>" --intake` で `<D>/intake.html` を生成し、手順6〜7と同じ方法で開いて送信を待つ（回答は `<D>/intake.answers.md` に書く）。フォームには依頼文、ファイル選択（複数）、ファイルパス（1 行 1 つ）の欄がある。送信後、次のように取り込む。
+2. 入力フォーム（毎回行う）: 依頼文とファイルを集める。起動時にテーマ（スキルの引数・同じメッセージの依頼内容）が一緒に送られている場合は、その原文を `<D>/intake.json` に `{"request": "<原文>"}` として書き（Write）、`--input "<D>/intake.json"` を付けて依頼文欄に転記しておく（ユーザーは確認・修正だけする）。なければ空欄のままにする。`python "${CLAUDE_SKILL_DIR}/grill_form.py" render --session-dir "<D>" --intake [--input "<D>/intake.json"]` で `<D>/intake.html` を生成し、手順6〜7と同じ方法で開いて送信を待つ（回答は `<D>/intake.answers.md` に書く）。フォームには依頼文、ファイル選択（複数）、ファイルパス（1 行 1 つ）の欄がある。送信後、次のように取り込む。
    - `## 依頼文` の本文を `<D>/request.md` に書く（Write）。
    - `## ファイル` の `grill-in-N.拡張子 ← 元のファイル名` は、送信時にブラウザがダウンロードしたファイル。Playwright MCP の送信時の Events にある `Downloaded file ... to "<保存先>"` の保存先を使い、`python "${CLAUDE_SKILL_DIR}/grill_form.py" stage --session-dir "<D>" --file "<保存先>" --name "<元のファイル名>"` で取り込む。取り込んだら保存先のファイルは削除する。
    - `## ファイルパス` の各パスは、存在を確認して同じ `stage --file "<パス>"` で取り込む（`--name` は省略）。存在しない・フォルダのパスは、ユーザーに再入力か対象ファイルの指定を求める。
@@ -40,7 +40,8 @@ allowed-tools: Bash(python ${CLAUDE_SKILL_DIR}/grill_form.py *) Bash(python "${C
    - `submitted` が false なら、まだ送信されていない。同じ呼び出しを繰り返す（合計約30分、18回まで）。
    - ユーザーがターミナルに何か入力した場合は、待ちをやめてその内容に従う（「完了」なら即座に下の確認へ進む）。
    - 上限を超えたら、続行方法をユーザーに聞く。
-   - `submitted` が true なら、`md` をそのまま `<D>/round-N.answers.md` に書く（Write）。
+   - `md` に `## 中止` がある場合は、ユーザーが HTML の「中止」ボタンで grilling を打ち切った。回答ファイルは書かず、SPEC も作らず、以降の手順に進まない。中止したことと、一時セッション `<D>` が残っていること（3 日後に自動削除）を 1 行で報告して終わる。
+   - `submitted` が true で中止でないなら、`md` をそのまま `<D>/round-N.answers.md` に書く（Write）。
    - false（未送信・ウィンドウを閉じた等）なら、書かずに続行方法を聞く。コピーボタンで Markdown を貼ってもらう手もある。
 8. 回答を読んで design tree を更新し、次のラウンド（手順4〜）へ。ラウンドごとに新しい HTML を生成する。
 9. frontier が空になったら、合意内容を SPEC 案（概要・流れ・受入条件・非目標・リスク・決定ログ）にまとめ（概要の中に「入力」として、依頼文の要約と、入力ファイルの一覧（ファイル名・元のパス）を入れる）、`{"title","intro","summary"}` の JSON で `render --final --round <K>` を実行して `<D>/final-K.html` を開く。K は最終確認の版番号で、1 から始めて修正のたびに 1 増やす（前の版を上書きしない）。送信の待ち方と回答の記録は手順7と同じ（`<D>/final-K.answers.md` に書く）。
@@ -61,6 +62,7 @@ round: <N>
 - 状態: 回答 / 保留 / 要確認 / 未回答
 ```
 入力フォームは frontmatter が `intake: 1` で、本文は `## 依頼文`・`## ファイル`・`## ファイルパス` の 3 節。
+どのフォームでも「中止」を 2 回押すと、本文が `## 中止`（`判定: 中止`）だけの回答になる。
 最終確認は frontmatter が `round` ではなく `final: <K>`（版番号）で、本文は `## 承認` に `判定`（承認 / 修正あり）と `コメント`。
 
 ## 注意

@@ -13,7 +13,7 @@
                               （修正のたびに版を上げ、前の版を上書きしない）
   render --session-dir D --intake [--input J.json]
                               入力フォーム（依頼文・ファイル・パス）intake.html を生成する。
-                              J.json は {"title","intro"} で省略可
+                              J.json は {"title","intro","request"} で省略可（request は依頼文欄の初期入力）
   stage  --session-dir D --file SRC [--name N]
                               入力ファイル SRC を D/inputs/ に取り込む（承認時に SPEC と同じフォルダへ残る）。
                               --name は元のファイル名（SPEC.md・request.md と重なる名前や重複は自動で別名にする）
