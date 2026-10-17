@@ -245,7 +245,7 @@ button.clear { font-size: 13px; padding: 2px 12px; margin: 2px 0 4px; color: var
       card.appendChild(label);
     });
     if (inputs.length) {
-      // 一度選ぶとラジオボタンは外せないので、選択なし（自由入力だけ）に戻すボタンを置く
+      // 一度選ぶとラジオボタンは外せないので、選択なし（コメントだけ）に戻すボタンを置く
       var clear = el('button', 'clear', '選択をクリア');
       clear.type = 'button';
       clear.addEventListener('click', function () {
@@ -256,16 +256,12 @@ button.clear { font-size: 13px; padding: 2px 12px; margin: 2px 0 4px; color: var
     if (q.reason) card.appendChild(el('div', 'reason', '推奨の理由: ' + q.reason));
 
     var f1 = el('label', 'field', (q.options && q.options.length)
-      ? '自由入力（候補にない回答は「その他」を選ばずここに書いてOK）'
-      : '回答（自由記述）');
-    var free = document.createElement('textarea');
-    f1.appendChild(free);
-    card.appendChild(f1);
-    var f2 = el('label', 'field', '補足コメント');
+      ? 'コメント（候補を選んだときは理由・条件の補足。候補を選ばずに書けば、それが回答になります）'
+      : 'コメント（自由記述。これが回答になります）');
     var note = document.createElement('textarea');
-    f2.appendChild(note);
-    card.appendChild(f2);
-    var f3 = el('label', 'field', '聞き返し（質問が分からない・確認したいこと。書くと「要確認」になり、次のラウンドで Claude が説明か補足質問を返します）');
+    f1.appendChild(note);
+    card.appendChild(f1);
+    var f3 = el('label', 'field', '聞き返し（Claude への質問。質問が分からない・確認したいことを書く。書くと「要確認」になり、次のラウンドで Claude が説明か補足質問を返します）');
     var ask = document.createElement('textarea');
     f3.appendChild(ask);
     card.appendChild(f3);
@@ -283,10 +279,10 @@ button.clear { font-size: 13px; padding: 2px 12px; margin: 2px 0 4px; color: var
     content.appendChild(card);
     blocks.push(function () {
       var sel = inputs.filter(function (i) { return i.checked; }).map(function (i) { return i.value; });
-      var freeText = free.value.trim();
+      var noteText = note.value.trim();
       var askText = ask.value.trim();
-      var state = hold.checked ? '保留' : askText ? '要確認' : ((sel.length || freeText) ? '回答' : '未回答');
-      return { id: q.id, sel: sel, free: freeText, note: note.value.trim(), ask: askText, state: state };
+      var state = hold.checked ? '保留' : askText ? '要確認' : ((sel.length || noteText) ? '回答' : '未回答');
+      return { id: q.id, sel: sel, note: noteText, ask: askText, state: state };
     });
   }
 
@@ -300,8 +296,7 @@ button.clear { font-size: 13px; padding: 2px 12px; margin: 2px 0 4px; color: var
       if (r.state === '未回答') unanswered.push(r.id);
       md += '## ' + r.id + '\n' +
         '- 選択: ' + r.sel.join(', ') + '\n' +
-        '- 自由入力: ' + oneLine(r.free) + '\n' +
-        '- 補足: ' + oneLine(r.note) + '\n' +
+        '- コメント: ' + oneLine(r.note) + '\n' +
         '- 聞き返し: ' + oneLine(r.ask) + '\n' +
         '- 状態: ' + r.state + '\n';
     });
