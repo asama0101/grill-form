@@ -1,6 +1,6 @@
 ---
 name: grill-form
-description: grilling（質問攻めで合意を作る手法）を HTML のフォームで行い、候補選択・自由入力・保留で内容を詰めて、最後に SPEC 形式で結果を出す。ユーザーが「HTML で grilling」「grill-form」と明示したときだけ使う。単に「grill して」と頼まれただけのときは使わない。
+description: grilling（質問攻めで合意を作る手法）を HTML のフォームで行い、候補選択・コメント・保留で内容を詰めて、最後に SPEC 形式で結果を出す。ユーザーが「HTML で grilling」「grill-form」と明示したときだけ使う。単に「grill して」と頼まれただけのときは使わない。
 allowed-tools: Bash(python ${CLAUDE_SKILL_DIR}/grill_form.py *) Bash(python "${CLAUDE_SKILL_DIR}/grill_form.py" *) Bash(python3 ${CLAUDE_SKILL_DIR}/grill_form.py *) Bash(python3 "${CLAUDE_SKILL_DIR}/grill_form.py" *)
 ---
 
@@ -56,9 +56,8 @@ round: <N>
 ---
 ## Q1
 - 選択: A        （複数は「, 」区切り）
-- 自由入力: …
-- 補足: …
-- 聞き返し: …
+- コメント: …    （選択ありは理由・条件の補足、選択なしはコメント自体が回答）
+- 聞き返し: …    （Claude への質問。あると状態は「要確認」）
 - 状態: 回答 / 保留 / 要確認 / 未回答
 ```
 入力フォームは frontmatter が `intake: 1` で、本文は `## 依頼文`・`## ファイル`・`## ファイルパス` の 3 節。
