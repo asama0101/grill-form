@@ -42,6 +42,7 @@ import tempfile
 import time
 from pathlib import Path
 
+__version__ = "1.0"
 ENV_DIR = "GRILL_FORM_DIR"
 DEFAULT_DIR = "grill-specs"
 SPEC_NAME = "SPEC.md"
@@ -203,6 +204,7 @@ def main() -> int:
     sys.stdout.reconfigure(encoding="utf-8")
     sys.stderr.reconfigure(encoding="utf-8")
     ap = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
+    ap.add_argument("--version", action="version", version=f"grill-form {__version__}")
     sub = ap.add_subparsers(dest="cmd", required=True)
 
     p = sub.add_parser("init")
