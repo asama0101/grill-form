@@ -1,6 +1,6 @@
 # grill-form
 
-バージョン: 1.0（`python grill_form.py --version` でも確認できます）
+バージョン: 1.0.0（`python grill_form.py --version` でも確認できます）
 
 計画や設計を、ブラウザのフォームで答えながら詰めて、最後に SPEC（仕様書）にまとめる Claude Code 用のスキルです。
 

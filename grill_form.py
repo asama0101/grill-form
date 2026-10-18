@@ -42,7 +42,7 @@ import tempfile
 import time
 from pathlib import Path
 
-__version__ = "1.0"
+__version__ = "1.0.0"
 ENV_DIR = "GRILL_FORM_DIR"
 DEFAULT_DIR = "grill-specs"
 SPEC_NAME = "SPEC.md"
