@@ -1,0 +1,11 @@
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+addopts = ["--strict-markers", "-ra"]
+xfail_strict = true
+
+[tool.ruff.lint]
+select = ["E", "F", "I", "B", "UP", "SIM", "S", "PT"]
+
+[tool.ruff.lint.per-file-ignores]
+# pytest は assert で検査する
+"tests/*" = ["S101"]

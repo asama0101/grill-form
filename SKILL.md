@@ -1,6 +1,7 @@
 ---
 name: grill-form
-description: grilling（質問攻めで合意を作る手法）を HTML のフォームで行い、候補選択・コメント・保留で内容を詰めて、最後に SPEC 形式で結果を出す。ユーザーが「HTML で grilling」「grill-form」と明示したときだけ使う。単に「grill して」と頼まれただけのときは使わない。
+description: grilling（質問攻めで合意を作る手法）を HTML のフォームで行い、候補選択・コメント・保留で内容を詰めて、最後に SPEC 形式で結果を出す。ユーザーが「HTML で grilling」「grill-form」と明示したときだけ使う。単に「grill して」と頼まれただけのときは使わない（その場合は grilling スキルを使う）。
+disable-model-invocation: true
 allowed-tools: Bash(python ${CLAUDE_SKILL_DIR}/grill_form.py *) Bash(python "${CLAUDE_SKILL_DIR}/grill_form.py" *) Bash(python3 ${CLAUDE_SKILL_DIR}/grill_form.py *) Bash(python3 "${CLAUDE_SKILL_DIR}/grill_form.py" *)
 ---
 

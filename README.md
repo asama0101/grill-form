@@ -168,6 +168,16 @@ grill-specs/<日時>_<テーマ>/
 | 作業用ファイル（質問 JSON・HTML・回答 Markdown・取り込んだ入力ファイル） | 一時フォルダ配下 `grill-form/<日時>_<テーマ>/` | 承認後に自動削除。未承認で中断したものは 3 日後に削除 |
 | Playwright MCP の記録とダウンロード | 一時フォルダ配下 `playwright-mcp/` | OS の一時フォルダの掃除に任せる |
 
+## 開発
+
+SKILL.md の形式（frontmatter の `name`、絶対パス・相対パスを書いていないこと、`${CLAUDE_SKILL_DIR}` が指すファイルの実在）を pytest で検査します。テストの依存は `requirements-dev.txt` に固定しています。スキル本体（実行時）には依存はありません。
+
+```bash
+python -m venv <一時フォルダ>/grill-form-venv   # プロジェクトの外に作る
+<一時フォルダ>/grill-form-venv/Scripts/python -m pip install -r requirements-dev.txt
+<一時フォルダ>/grill-form-venv/Scripts/python -m pytest
+```
+
 ## ライセンス
 
 [MIT](LICENSE)
