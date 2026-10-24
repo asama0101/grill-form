@@ -143,13 +143,13 @@ def test_SKILLに廃止した語が残っていない(text, term):
 
 @pytest.mark.parametrize("term", REMOVED_TERMS)
 def test_READMEとスクリプトに廃止した語が残っていない(term):
-    for path in (PLUGIN / "README.md", SCRIPT):
+    for path in (ROOT / "README.md", SCRIPT):
         body = path.read_text(encoding="utf-8")
         assert term not in body, path.name
 
 
 def test_stageサブコマンドの記述がどこにも残っていない(text):
-    for path in (PLUGIN / "README.md", SCRIPT):
+    for path in (ROOT / "README.md", SCRIPT):
         body = path.read_text(encoding="utf-8")
         assert re.search(r"\bstage\b", body) is None, path.name
     assert re.search(r"\bstage\b", text) is None
@@ -223,3 +223,36 @@ def test_SKILLのルールに元のgrillingの要点がある(text, rule):
 def test_出典の固定する版が元の最新の版である():
     notices = (PLUGIN / "NOTICE").read_text(encoding="utf-8")
     assert UPSTREAM_COMMIT in notices
+
+
+README_SECTIONS = [
+    "機能",
+    "前提条件",
+    "導入方法",
+    "使い方",
+    "設定",
+    "困ったとき",
+    "開発者向け",
+    "ライセンス・連絡先",
+]
+
+
+def test_READMEはリポジトリ直下に1つだけある():
+    found = sorted(
+        p.relative_to(ROOT).as_posix()
+        for p in ROOT.rglob("README.md")
+        if not any(part.startswith(".") or part == "node_modules" for part in p.parts)
+    )
+    assert found == ["README.md"]
+
+
+def test_READMEの章は規則の順番に並ぶ():
+    text = (ROOT / "README.md").read_text(encoding="utf-8")
+    heads = re.findall(r"^## (.+)$", text, re.MULTILINE)
+    assert heads, "章（## 見出し）が 1 つもない"
+    assert [h for h in README_SECTIONS if h in heads] == heads
+
+
+def test_READMEは未検証の明記を本文に書かない():
+    text = (ROOT / "README.md").read_text(encoding="utf-8")
+    assert "未検証" not in text

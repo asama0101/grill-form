@@ -1,11 +1,12 @@
 # 開発者向けメモ
 
-grill-form の仕組みとテストです。使い方は [プラグインの README](../plugins/grill-form/README.md) を見てください。
+grill-form の仕組みとテストです。使い方は [README.md](../README.md) を見てください。
 
 ## ファイル構成
 
 | ファイル | 内容 |
 | --- | --- |
+| `README.md` | 利用者向けの説明。リポジトリ直下に 1 つだけ置き、プラグインのフォルダの中には置かない（出典の注記は `plugins/grill-form/NOTICE`） |
 | `.claude-plugin/marketplace.json` | マーケットプレイスの定義 |
 | `plugins/grill-form/.claude-plugin/plugin.json` | プラグインのメタ（version は `grill_form.py` の `__version__` と一致させる） |
 | `plugins/grill-form/skills/grill-form/SKILL.md` | スキルの定義と手順 |
@@ -32,6 +33,14 @@ grill-form の仕組みとテストです。使い方は [プラグインの REA
 | --- | --- | --- |
 | 作業用ファイル（質問 JSON・HTML・回答 Markdown） | 一時フォルダ配下 `grill-form/<日時>_<テーマ>/` | 承認後に自動削除。未承認で中断したものは 3 日後に削除 |
 | Playwright MCP の記録 | 一時フォルダ配下 `playwright-mcp/` | OS の一時フォルダの掃除に任せる |
+
+## ローカルで試す
+
+インストールせずに、clone したフォルダのプラグインを読み込んで起動します。
+
+```bash
+claude --plugin-dir ./plugins/grill-form
+```
 
 ## テストと検査
 
