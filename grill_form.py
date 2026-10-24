@@ -1,25 +1,37 @@
 """grill-form スキル用のスクリプト。
 
 サブコマンド:
-  init   --theme T [--parent P]  一時セッションフォルダ（OS の一時フォルダ配下）を作り、次の2行を出力する。
-                              1行目: 一時セッションのパス（HTML・回答・質問 JSON を置く）
-                              2行目: SPEC の保存先 <親>/<日時>_<テーマ>/SPEC.md（承認時に書く）
-                              （親フォルダの決め方: --parent > 環境変数 GRILL_FORM_DIR > grill-specs。
-                               相対パスは git のルート（なければカレントフォルダ）から解決する）
+  init   --theme T [--parent P]
+                              一時セッションフォルダ（OS の一時フォルダ配下）を作り、
+                              次の2行を出力する。
+                              1行目: 一時セッションのパス
+                              （HTML・回答・質問 JSON を置く）
+                              2行目: SPEC の保存先 <親>/<日時>_<テーマ>/SPEC.md
+                              （承認時に書く）
+                              （親フォルダの決め方: --parent >
+                               環境変数 GRILL_FORM_DIR > grill-specs。
+                               相対パスは git のルート（なければカレントフォルダ）
+                               から解決する）
                               作成時に、3 日より古い一時セッションを削除する
   render --session-dir D --round N [--final] --input J.json
                               質問 JSON から round-N.html を生成し、パスを出力する。
-                              --final のときは N を最終確認の版番号とし、final-N.html を生成する
+                              --final のときは N を最終確認の版番号とし、
+                              final-N.html を生成する
                               （修正のたびに版を上げ、前の版を上書きしない）
   render --session-dir D --intake [--input J.json]
-                              入力フォーム（依頼文・ファイル・パス）intake.html を生成する。
-                              J.json は {"title","intro","request"} で省略可（request は依頼文欄の初期入力）
+                              入力フォーム（依頼文・ファイル・パス）intake.html を
+                              生成する。J.json は {"title","intro","request"} で
+                              省略可（request は依頼文欄の初期入力）
   stage  --session-dir D --file SRC [--name N]
-                              入力ファイル SRC を D/inputs/ に取り込む（承認時に SPEC と同じフォルダへ残る）。
-                              --name は元のファイル名（SPEC.md・request.md と重なる名前や重複は自動で別名にする）
+                              入力ファイル SRC を D/inputs/ に取り込む
+                              （承認時に SPEC と同じフォルダへ残る）。
+                              --name は元のファイル名
+                              （SPEC.md・request.md と重なる名前や重複は
+                               自動で別名にする）
   cleanup --session-dir D --spec S [--yes]
-                              一時セッション D を削除対象として表示する。--yes を付けたときだけ、
-                              D/request.md と D/inputs/ の中身を SPEC（S）と同じフォルダへ移してから D を削除する。
+                              一時セッション D を削除対象として表示する。
+                              --yes を付けたときだけ、D/request.md と D/inputs/ の
+                              中身を SPEC（S）と同じフォルダへ移してから D を削除する。
                               SPEC（S）がなければ何もしない（承認前は消さない）
 
 質問 JSON:
@@ -30,6 +42,7 @@
 final の JSON:
   {"title": "...", "intro": "...", "summary": "（SPEC 案の本文）"}
 """
+
 import argparse
 import datetime
 import json
@@ -57,8 +70,16 @@ INVALID = re.compile(r'[\\/:*?"<>|\s]+')
 
 def base_dir() -> Path:
     # 相対パスの基準。git のルート、なければカレントフォルダ
+    git = shutil.which("git")
+    if git is None:
+        return Path.cwd()
     try:
-        top = subprocess.run(["git", "rev-parse", "--show-toplevel"], capture_output=True, text=True, check=True).stdout.strip()
+        top = subprocess.run(  # noqa: S603  引数は固定で、git は which で解決した実体
+            [git, "rev-parse", "--show-toplevel"],
+            capture_output=True,
+            text=True,
+            check=True,
+        ).stdout.strip()
         return Path(top)
     except (OSError, subprocess.CalledProcessError):
         return Path.cwd()
@@ -99,14 +120,22 @@ def cmd_init(args) -> int:
 def embed(data: dict) -> str:
     # <script> 内に埋め込むため、終了タグと行区切り文字を無害化する
     text = json.dumps(data, ensure_ascii=False)
-    return text.replace("</", "<\\/").replace("\u2028", "\\u2028").replace("\u2029", "\\u2029")
+    return (
+        text.replace("</", "<\\/")
+        .replace("\u2028", "\\u2028")
+        .replace("\u2029", "\\u2029")
+    )
 
 
 def cmd_render(args) -> int:
     d = Path(args.session_dir)
     d.mkdir(parents=True, exist_ok=True)
     if args.intake:
-        payload = json.loads(Path(args.input).read_text(encoding="utf-8")) if args.input else {}
+        payload = (
+            json.loads(Path(args.input).read_text(encoding="utf-8"))
+            if args.input
+            else {}
+        )
         payload["mode"] = "intake"
         payload["round"] = 0
         payload.setdefault("title", "入力（依頼文・ファイル）")
@@ -119,8 +148,14 @@ def cmd_render(args) -> int:
         payload["round"] = args.round
         payload["mode"] = "final" if args.final else "round"
         if not payload.get("title"):
-            payload["title"] = f"最終確認（第{args.round}版）" if args.final else f"ラウンド {args.round}"
-        out = d / (f"final-{args.round}.html" if args.final else f"round-{args.round}.html")
+            payload["title"] = (
+                f"最終確認（第{args.round}版）"
+                if args.final
+                else f"ラウンド {args.round}"
+            )
+        out = d / (
+            f"final-{args.round}.html" if args.final else f"round-{args.round}.html"
+        )
     payload["session"] = d.name
     html = TEMPLATE.read_text(encoding="utf-8").replace("__DATA__", embed(payload))
     out.write_text(html, encoding="utf-8")
@@ -168,14 +203,19 @@ def keep_inputs(d: Path, spec: Path) -> None:
     if src_dir.is_dir():
         for f in sorted(src_dir.iterdir()):
             if f.is_file():
-                shutil.copy2(f, dest / unique_name(f.name, {p.name for p in dest.iterdir()}))
+                shutil.copy2(
+                    f, dest / unique_name(f.name, {p.name for p in dest.iterdir()})
+                )
 
 
 def cmd_cleanup(args) -> int:
     d = Path(args.session_dir).resolve()
     # 一時セッション以外（プロジェクト内など）は消さない
     if d.parent != temp_root():
-        print(f"{d} は grill-form の一時セッションではないため何もしません。", file=sys.stderr)
+        print(
+            f"{d} は grill-form の一時セッションではないため何もしません。",
+            file=sys.stderr,
+        )
         return 1
     if not Path(args.spec).exists():
         print("SPEC がないため何もしません（承認前は削除しません）。", file=sys.stderr)
@@ -192,7 +232,8 @@ def cmd_cleanup(args) -> int:
             print(
                 f"削除できませんでした: {e}\n"
                 "シェルのカレントフォルダが一時セッション内にないか確認してください。"
-                "SPEC は保存済みで、残った一時セッションは次回の init で古いものから自動削除されます。",
+                "SPEC は保存済みで、残った一時セッションは次回の init で"
+                "古いものから自動削除されます。",
                 file=sys.stderr,
             )
             return 1
@@ -203,20 +244,30 @@ def cmd_cleanup(args) -> int:
 def main() -> int:
     sys.stdout.reconfigure(encoding="utf-8")
     sys.stderr.reconfigure(encoding="utf-8")
-    ap = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
+    ap = argparse.ArgumentParser(
+        description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter
+    )
     ap.add_argument("--version", action="version", version=f"grill-form {__version__}")
     sub = ap.add_subparsers(dest="cmd", required=True)
 
     p = sub.add_parser("init")
     p.add_argument("--theme", required=True)
-    p.add_argument("--parent", help=f"SPEC を保存する親フォルダ（既定: 環境変数 {ENV_DIR}、なければ {DEFAULT_DIR}）")
+    p.add_argument(
+        "--parent",
+        help=(
+            "SPEC を保存する親フォルダ"
+            f"（既定: 環境変数 {ENV_DIR}、なければ {DEFAULT_DIR}）"
+        ),
+    )
     p.set_defaults(fn=cmd_init)
 
     p = sub.add_parser("render")
     p.add_argument("--session-dir", required=True)
     p.add_argument("--round", type=int)
     p.add_argument("--final", action="store_true")
-    p.add_argument("--intake", action="store_true", help="入力フォーム intake.html を生成する")
+    p.add_argument(
+        "--intake", action="store_true", help="入力フォーム intake.html を生成する"
+    )
     p.add_argument("--input")
     p.set_defaults(fn=cmd_render)
 
