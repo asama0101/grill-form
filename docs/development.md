@@ -1,16 +1,18 @@
 # 開発者向けメモ
 
-grill-form の仕組みとテストです。使い方は [README.md](../README.md) を見てください。
+grill-form の仕組みとテストです。使い方は [プラグインの README](../plugins/grill-form/README.md) を見てください。
 
 ## ファイル構成
 
 | ファイル | 内容 |
 | --- | --- |
-| `SKILL.md` | スキルの定義と手順 |
-| `grill_form.py` | 補助スクリプト。サブコマンドは下の表 |
-| `grill_form_template.html` | フォームのテンプレート（単一 HTML、外部リソースなし、`innerHTML` は使わない） |
+| `.claude-plugin/marketplace.json` | マーケットプレイスの定義 |
+| `plugins/grill-form/.claude-plugin/plugin.json` | プラグインのメタ（version は `grill_form.py` の `__version__` と一致させる） |
+| `plugins/grill-form/skills/grill-form/SKILL.md` | スキルの定義と手順 |
+| `plugins/grill-form/scripts/grill_form.py` | 補助スクリプト。サブコマンドは下の表 |
+| `plugins/grill-form/scripts/grill_form_template.html` | フォームのテンプレート（単一 HTML、外部リソースなし、`innerHTML` は使わない） |
+| `plugins/grill-form/NOTICE` | 取り込んだルールの出典とライセンス |
 | `tests/` | pytest のテスト |
-| `THIRD_PARTY_NOTICES.md` | 取り込んだルールの出典とライセンス |
 
 ### `grill_form.py` のサブコマンド
 
@@ -33,7 +35,7 @@ grill-form の仕組みとテストです。使い方は [README.md](../README.m
 
 ## テストと検査
 
-SKILL.md の形式（frontmatter の `name`、絶対パス・相対パスを書いていないこと、`${CLAUDE_SKILL_DIR}` が指すファイルの実在）、`grill_form.py` の各サブコマンド、フォームの HTML の構造を、pytest で検査します。スキル本体（実行時）には依存がありません。テストの依存は `requirements-dev.txt` に固定しています。
+プラグインの形式（SKILL.md の frontmatter、絶対パス・相対パスを書いていないこと、`${CLAUDE_PLUGIN_ROOT}` が指すファイルの実在、MCP を同梱していないこと、version の一致、`claude plugin validate`）、`grill_form.py` の各サブコマンド、フォームの HTML の構造を、pytest で検査します。スキル本体（実行時）には依存がありません。テストの依存は `requirements-dev.txt` に固定しています。
 
 ```bash
 python -m venv <一時フォルダ>/grill-form-venv   # プロジェクトの外に作る
@@ -44,4 +46,4 @@ python -m venv <一時フォルダ>/grill-form-venv   # プロジェクトの外
 ```
 
 - フォームの動き（キー操作、次の質問へ移る動き）は、自動テストの対象外です。ブラウザで目視して確かめてください。
-- 選択ダイアログの表示も、自動テストの対象外です。`python grill_form.py pick-file` を実行して確かめてください。
+- 選択ダイアログの表示も、自動テストの対象外です。`python plugins/grill-form/scripts/grill_form.py pick-file` を実行して確かめてください。

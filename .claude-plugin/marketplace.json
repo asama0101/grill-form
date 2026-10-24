@@ -1,0 +1,12 @@
+{
+  "name": "grill-form",
+  "description": "grill-form プラグインの配布用マーケットプレイス。",
+  "owner": { "name": "asama0101" },
+  "plugins": [
+    {
+      "name": "grill-form",
+      "source": "./plugins/grill-form",
+      "description": "計画や設計を、ブラウザのフォームで答えながら詰めて、SPEC にまとめる。"
+    }
+  ]
+}

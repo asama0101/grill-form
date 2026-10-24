@@ -1,14 +1,17 @@
-"""SKILL.md の形式を検査する（plugin-rules F1 の単体スキル分: 1・2・3・4）。"""
+"""プラグインの形式を検査する（plugin-rules F1 の 1〜8）。"""
 
+import json
 import re
+import shutil
+import subprocess
 from pathlib import Path
 
 import pytest
 
 ROOT = Path(__file__).resolve().parent.parent
-SKILL_MD = ROOT / "SKILL.md"
-# 単体スキルの SKILL.md は、このリポジトリの直下にある。
-# そのため親ディレクトリ名ではなく、期待するスキル名と照合する。
+PLUGIN = ROOT / "plugins" / "grill-form"
+SKILL_MD = PLUGIN / "skills" / "grill-form" / "SKILL.md"
+SCRIPT = PLUGIN / "scripts" / "grill_form.py"
 EXPECTED_NAME = "grill-form"
 
 
@@ -28,8 +31,8 @@ def parse_frontmatter(text: str) -> dict:
     return fields
 
 
-def test_frontmatterのnameがスキル名と一致する(text):
-    assert parse_frontmatter(text)["name"] == EXPECTED_NAME
+def test_frontmatterのnameがディレクトリ名と一致する(text):
+    assert parse_frontmatter(text)["name"] == SKILL_MD.parent.name == EXPECTED_NAME
 
 
 def test_ハードコードした絶対パスがない(text):
@@ -39,11 +42,67 @@ def test_ハードコードした絶対パスがない(text):
     assert re.findall(pattern, text) == []
 
 
-def test_CLAUDE_SKILL_DIR_が指すファイルが実在する(text):
-    refs = re.findall(r"\$\{CLAUDE_SKILL_DIR\}/([^\s\"'`)]+)", text)
+def test_CLAUDE_SKILL_DIR_を使っていない(text):
+    assert "CLAUDE_SKILL_DIR" not in text
+
+
+def test_CLAUDE_PLUGIN_ROOT_が指すファイルが実在する(text):
+    refs = re.findall(r"\$\{CLAUDE_PLUGIN_ROOT\}/([^\s\"'`)]+)", text)
     assert refs, "参照が 1 件もない（検査が空振りしている）"
-    missing = [r for r in refs if not (ROOT / r).is_file()]
+    missing = [r for r in refs if not (PLUGIN / r).is_file()]
     assert missing == []
+
+
+def test_MCPを同梱していない():
+    assert not (PLUGIN / ".mcp.json").exists()
+    plugin = json.loads(
+        (PLUGIN / ".claude-plugin/plugin.json").read_text(encoding="utf-8")
+    )
+    market = json.loads(
+        (ROOT / ".claude-plugin/marketplace.json").read_text(encoding="utf-8")
+    )
+    assert "mcpServers" not in plugin
+    assert all("mcpServers" not in p for p in market["plugins"])
+
+
+def test_versionがメタとコードで一致する():
+    plugin = json.loads(
+        (PLUGIN / ".claude-plugin/plugin.json").read_text(encoding="utf-8")
+    )
+    m = re.search(r'__version__ = "([^"]+)"', SCRIPT.read_text(encoding="utf-8"))
+    assert m
+    assert plugin["version"] == m.group(1)
+
+
+def test_配布に必要なファイルがgit管理下にある():
+    out = subprocess.run(  # noqa: S603
+        ["git", "ls-files", "plugins/grill-form"],  # noqa: S607
+        cwd=ROOT,
+        capture_output=True,
+        encoding="utf-8",
+        errors="replace",
+        check=True,
+    ).stdout.split()
+    for rel in (
+        ".claude-plugin/plugin.json",
+        "skills/grill-form/SKILL.md",
+        "scripts/grill_form.py",
+        "scripts/grill_form_template.html",
+    ):
+        assert f"plugins/grill-form/{rel}" in out
+
+
+@pytest.mark.skipif(shutil.which("claude") is None, reason="claude CLI がない")
+def test_claude_plugin_validateが通る():
+    for target in (PLUGIN, ROOT):
+        r = subprocess.run(  # noqa: S603
+            [shutil.which("claude"), "plugin", "validate", str(target), "--strict"],
+            capture_output=True,
+            encoding="utf-8",
+            errors="replace",
+            check=False,
+        )
+        assert r.returncode == 0, r.stdout + r.stderr
 
 
 def test_相対リンクと地の文の相対パスがない(text):
@@ -82,15 +141,15 @@ def test_SKILLに廃止した語が残っていない(text, term):
 
 @pytest.mark.parametrize("term", REMOVED_TERMS)
 def test_READMEとスクリプトに廃止した語が残っていない(term):
-    for name in ("README.md", "grill_form.py"):
-        body = (ROOT / name).read_text(encoding="utf-8")
-        assert term not in body, name
+    for path in (PLUGIN / "README.md", SCRIPT):
+        body = path.read_text(encoding="utf-8")
+        assert term not in body, path.name
 
 
 def test_stageサブコマンドの記述がどこにも残っていない(text):
-    for name in ("README.md", "grill_form.py"):
-        body = (ROOT / name).read_text(encoding="utf-8")
-        assert re.search(r"\bstage\b", body) is None, name
+    for path in (PLUGIN / "README.md", SCRIPT):
+        body = path.read_text(encoding="utf-8")
+        assert re.search(r"\bstage\b", body) is None, path.name
     assert re.search(r"\bstage\b", text) is None
 
 
@@ -147,5 +206,5 @@ def test_SKILLのルールに元のgrillingの要点がある(text, rule):
 
 
 def test_出典の固定する版が元の最新の版である():
-    notices = (ROOT / "THIRD_PARTY_NOTICES.md").read_text(encoding="utf-8")
+    notices = (PLUGIN / "NOTICE").read_text(encoding="utf-8")
     assert UPSTREAM_COMMIT in notices

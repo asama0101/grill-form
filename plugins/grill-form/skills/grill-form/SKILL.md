@@ -2,7 +2,7 @@
 name: grill-form
 description: grilling（質問攻めで合意を作る手法）を HTML のフォームで行い、候補選択・コメント・保留で内容を詰めて、最後に SPEC 形式で結果を出す。ユーザーが「HTML で grilling」「grill-form」と明示したときだけ使う。単に「grill して」と頼まれただけのときは使わない（その場合は grilling スキルを使う）。
 disable-model-invocation: true
-allowed-tools: Bash(python ${CLAUDE_SKILL_DIR}/grill_form.py *) Bash(python "${CLAUDE_SKILL_DIR}/grill_form.py" *) Bash(python3 ${CLAUDE_SKILL_DIR}/grill_form.py *) Bash(python3 "${CLAUDE_SKILL_DIR}/grill_form.py" *)
+allowed-tools: Bash(python "${CLAUDE_PLUGIN_ROOT}/scripts/grill_form.py" *) Bash(python3 "${CLAUDE_PLUGIN_ROOT}/scripts/grill_form.py" *)
 ---
 
 # grill-form
@@ -23,17 +23,17 @@ allowed-tools: Bash(python ${CLAUDE_SKILL_DIR}/grill_form.py *) Bash(python "${C
 - 質問 ID（`Q1`, `Q2`…）はセッション通しで一意にする（ラウンドでリセットしない）。
 
 ## 手順
-1. セッション作成: `python "${CLAUDE_SKILL_DIR}/grill_form.py" init --theme "<テーマ>"` を実行する。
+1. セッション作成: `python "${CLAUDE_PLUGIN_ROOT}/scripts/grill_form.py" init --theme "<テーマ>"` を実行する。
    - テーマは ASCII の短い名前にする（Windows の Git Bash 経由の日本語引数は文字化けするため。例: `api-design`）。
    - 出力は 1 行で、OS の一時フォルダ配下の一時セッション（以下 `<D>`）。HTML・回答・質問 JSON など、最終成果物以外はすべてここに置く。
    - SPEC の保存先（以下 `<S>`）は、手順10で決める。
    - `init` は 3 日より古い一時セッションも削除する。
 2. 入力フォーム（毎回行う）: 依頼文・ファイルパス・保存先を集める。
    - 起動時にテーマ（スキルの引数・同じメッセージの依頼内容）が一緒に送られている場合は、その原文を `<D>/intake.json` に `{"request": "<原文>"}` として書き（Write）、`--input "<D>/intake.json"` を付けて依頼文欄に転記しておく（ユーザーは確認・修正だけする）。なければ空欄のままにする。
-   - `python "${CLAUDE_SKILL_DIR}/grill_form.py" render --session-dir "<D>" --intake [--input "<D>/intake.json"]` で `<D>/intake.html` を生成する。
+   - `python "${CLAUDE_PLUGIN_ROOT}/scripts/grill_form.py" render --session-dir "<D>" --intake [--input "<D>/intake.json"]` で `<D>/intake.html` を生成する。
    - 手順6〜7と同じ方法で開いて送信を待つ（回答は `<D>/intake.answers.md` に書く）。フォームには、依頼文、ファイルパス（1 行 1 つ）、保存先の欄がある。送信後、次のように読む。
    - `## 依頼文` の本文を、以降の前提にする。
-   - `## ファイルパス` に `ダイアログで選ぶ` の行があるときは、先に `python "${CLAUDE_SKILL_DIR}/grill_form.py" pick-file` を実行し、出力された各行（1 行 1 パス）でその行を置き換える（ユーザーの画面にダイアログが開くので、待つ）。
+   - `## ファイルパス` に `ダイアログで選ぶ` の行があるときは、先に `python "${CLAUDE_PLUGIN_ROOT}/scripts/grill_form.py" pick-file` を実行し、出力された各行（1 行 1 パス）でその行を置き換える（ユーザーの画面にダイアログが開くので、待つ）。
    - 上の `pick-file` の終了コードが 1（取り消し）か 3（ダイアログを開けない）のときは、ファイルのパスをチャットで尋ねる（手入力のパスだけでよいと言われたら、その行は捨てる）。
    - `## ファイルパス` の各パスは、前後の引用符（`"`）を外してから、存在するファイルか確認する。存在しない・フォルダのパスは、ユーザーに再入力か対象ファイルの指定を求める。コピーはせず、元のパスのまま読み、パスの一覧は手順9の概要の「入力」に使う。
    - PDF は pdf スキルで文字を読み、図形が重要なときは Read ツールでページを画像として見る。PowerPoint・Excel は pptx・xlsx スキルで文字と図形の構造を読み、図形が重要なときは PDF に書き出して渡すようユーザーに伝える。量が多いときは読み取りをサブエージェントに任せてよい。
@@ -47,7 +47,7 @@ allowed-tools: Bash(python ${CLAUDE_SKILL_DIR}/grill_form.py *) Bash(python "${C
    - 制約: 期限・予算・技術・既存資産・変更してはいけないもの・守るべきルールなど。
    回答は以降のラウンドの前提にし、SPEC では既存項目に吸収する（目的・ゴール→概要、障壁→リスク、制約→非目標・決定ログ）。
 4. 質問 JSON を書く。置き場所は `<D>`。形式は `grill_form.py` の docstring を参照（`title`, `intro`, `questions[]` = `id`, `title`, `body`, `multi`, `options[]`（省略可）= `key`, `label`, `desc`、`recommended[]`, `reason`）。
-5. 生成: `python "${CLAUDE_SKILL_DIR}/grill_form.py" render --session-dir "<D>" --round <N> --input <json>` → `<D>/round-N.html`。
+5. 生成: `python "${CLAUDE_PLUGIN_ROOT}/scripts/grill_form.py" render --session-dir "<D>" --round <N> --input <json>` → `<D>/round-N.html`。
 6. Playwright MCP で `browser_navigate` により `file://` URL を開く。
    - Windows は `file:///C:/.../round-N.html` のようにスラッシュ区切りにする。macOS/Linux は `file:///home/.../round-N.html`。
    - ユーザーに「回答して『送信』を押してください」と伝える。
@@ -67,11 +67,11 @@ allowed-tools: Bash(python ${CLAUDE_SKILL_DIR}/grill_form.py *) Bash(python "${C
    - 送信の待ち方と回答の記録は手順7と同じ（`<D>/final-K.answers.md` に書く）。
    - 回答が `修正あり` なら、コメントを反映し、K を 1 増やして、この手順9を繰り返す。`承認` なら、手順10へ進む。
 10. `承認` なら、SPEC を保存して、一時セッションを片付ける。
-   - まず `python "${CLAUDE_SKILL_DIR}/grill_form.py" spec-path --theme "<テーマ>" [--parent "<フォルダ>"]` を実行し、出力を SPEC の保存先 `<S>`（`<親>/SPEC-<テーマ>-<日付>.md`）とする。
+   - まず `python "${CLAUDE_PLUGIN_ROOT}/scripts/grill_form.py" spec-path --theme "<テーマ>" [--parent "<フォルダ>"]` を実行し、出力を SPEC の保存先 `<S>`（`<親>/SPEC-<テーマ>-<日付>.md`）とする。
    - `--parent` は、手順2の `## 保存先` があるときだけ付ける（存在の確認は、手順2で済ませてある）。
    - 作業フォルダはカレントフォルダで決まるので、`cd` せずに実行する。
    - 承認された版の `summary` をそのまま `<S>` に書く（Write）。別のセッションに SPEC を渡すときは、このファイルを使う。
-   - 続けて、確認なしで `python "${CLAUDE_SKILL_DIR}/grill_form.py" cleanup --session-dir "<D>" --spec "<S>" --yes` を実行する。`cleanup` は一時セッション `<D>` を丸ごと削除する（一時セッション以外と、`<S>` がないときは何もしない）。
+   - 続けて、確認なしで `python "${CLAUDE_PLUGIN_ROOT}/scripts/grill_form.py" cleanup --session-dir "<D>" --spec "<S>" --yes` を実行する。`cleanup` は一時セッション `<D>` を丸ごと削除する（一時セッション以外と、`<S>` がないときは何もしない）。
    - `<S>` のパスを報告し、残るのは SPEC の 1 ファイルだけであることを伝える。質問と回答の履歴は残らない。
 
 ## 回答 Markdown の書式（ページ側が生成する）
