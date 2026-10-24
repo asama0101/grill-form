@@ -115,3 +115,38 @@ def test_SKILLは保存先のフォルダの存在を確認する(text):
 
 def test_SKILLは保存先の確認を承認より前の入力フォームの手順で行う(text):
     assert text.index("存在するフォルダか確認") < text.index("\n10. ")
+
+
+UPSTREAM_COMMIT = "95249b0b49782349740fd9b8c6ce32b4e59e497a"
+MAX_LINE = 400
+
+
+def body_lines(text: str) -> list:
+    # frontmatter（先頭の --- から次の --- まで）を除いた本文の行
+    return re.sub(r"\A---\r?\n.*?\r?\n---\r?\n", "", text, flags=re.DOTALL).splitlines()
+
+
+def test_SKILLの本文は1行が長すぎない(text):
+    too_long = [
+        (i, len(line))
+        for i, line in enumerate(body_lines(text), 1)
+        if len(line) > MAX_LINE
+    ]
+    assert too_long == []
+
+
+@pytest.mark.parametrize(
+    "rule",
+    [
+        "黙って仮定したまま残さない",
+        "同じラウンドで未決の質問に依存する質問は、そのラウンドに出さず、次のラウンドに回す",
+        "「はい」で推奨案を受け入れられる文言",
+    ],
+)
+def test_SKILLのルールに元のgrillingの要点がある(text, rule):
+    assert rule in text
+
+
+def test_出典の固定する版が元の最新の版である():
+    notices = (ROOT / "THIRD_PARTY_NOTICES.md").read_text(encoding="utf-8")
+    assert UPSTREAM_COMMIT in notices

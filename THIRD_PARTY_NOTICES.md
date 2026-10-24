@@ -2,7 +2,7 @@
 
 `SKILL.md` の「ルール」節は、次のスキルの考え方を日本語に要約・翻案したものです。
 
-- `grilling` skill — https://github.com/mattpocock/skills/tree/85f83d3fde1d3a90d5c9a657f6998c79a6c37308/skills/productivity/grilling
+- `grilling` skill — https://github.com/mattpocock/skills/tree/95249b0b49782349740fd9b8c6ce32b4e59e497a/skills/productivity/grilling
 
 元のライセンスは以下のとおりです。
 
