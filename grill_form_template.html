@@ -6,97 +6,144 @@
 <title>grill-form</title>
 <style>
 :root {
-  --bg: #f6f7f9; --card: #ffffff; --text: #1f2430; --muted: #667085;
-  --border: #d6dae1; --accent: #2f6fed; --accent-weak: #e8efff;
-  --rec: #1a7f4b; --rec-weak: #e4f5ec; --warn: #b54708;
+  --bg: #f3f4f7; --panel: #ffffff; --text: #0f1b2d; --muted: #5f6b7d; --line: #d3d9e2; --line-weak: #e6e9ef;
+  --sel: #2b4a8b; --sel-weak: #e7edf9; --rec: #1c7769; --rec-weak: #e0f1ee; --warn: #9a5200;
+  --mono: "BIZ UDGothic", "Cascadia Mono", Consolas, monospace;
+  --sans: "BIZ UDPGothic", "Yu Gothic UI", "Meiryo", system-ui, sans-serif;
 }
 @media (prefers-color-scheme: dark) {
-  :root {
-    --bg: #14161b; --card: #1d2027; --text: #e6e8ee; --muted: #9aa3b2;
-    --border: #343a46; --accent: #6b9bff; --accent-weak: #232c44;
-    --rec: #54c58b; --rec-weak: #1c2e25; --warn: #f0a04b;
-  }
+  :root { --bg: #11151b; --panel: #1a1f27; --text: #e8ebf1; --muted: #9aa4b4; --line: #38404c; --line-weak: #2a313b;
+    --sel: #8fb0ff; --sel-weak: #1f2b45; --rec: #5fcdb8; --rec-weak: #17302b; --warn: #f0a04b; }
 }
 * { box-sizing: border-box; }
-body { margin: 0; padding: 24px 16px 80px; background: var(--bg); color: var(--text);
-  font: 15px/1.7 "Yu Gothic UI", "Meiryo", system-ui, sans-serif; }
-main { max-width: 820px; margin: 0 auto; }
-h1 { font-size: 20px; margin: 0 0 4px; }
-.meta { color: var(--muted); font-size: 13px; margin-bottom: 16px; }
-.intro, .summary { background: var(--card); border: 1px solid var(--border);
-  border-radius: 10px; padding: 14px 16px; margin-bottom: 20px; }
-.q { background: var(--card); border: 1px solid var(--border); border-radius: 10px;
-  padding: 16px; margin-bottom: 16px; }
-.q.hold { opacity: .7; }
-.q h2 { font-size: 16px; margin: 0 0 8px; }
-.q .id { color: var(--accent); margin-right: 6px; }
-.body { margin-bottom: 12px; }
+body { margin: 0; background: var(--bg); color: var(--text); font: 15px/1.7 var(--sans); }
+.shell { max-width: 1040px; margin: 0 auto; display: grid; grid-template-columns: 224px 1fr; gap: 0 28px; padding: 24px 16px 0; }
+aside { position: sticky; top: 24px; align-self: start; padding-top: 6px; }
+aside h2 { font-size: 13px; font-weight: 700; margin: 0 0 8px; color: var(--muted); }
+.steps { list-style: none; margin: 0 0 18px; padding: 0; font-size: 13.5px; }
+.steps li { display: flex; gap: 8px; align-items: center; padding: 3px 0; color: var(--muted); }
+.steps li::before { content: ""; width: 9px; height: 9px; border-radius: 50%; border: 1.5px solid var(--line); flex: none; }
+.steps li.done::before { background: var(--muted); border-color: var(--muted); }
+.steps li.cur { color: var(--text); font-weight: 700; }
+.steps li.cur::before { border-color: var(--sel); background: var(--sel); box-shadow: 0 0 0 3px var(--sel-weak); }
+.idx { list-style: none; margin: 0 0 10px; padding: 0; display: grid; gap: 2px; }
+.idx a { display: grid; grid-template-columns: 34px 1fr 16px; gap: 4px; padding: 5px 8px; font-size: 13px; color: var(--text);
+  text-decoration: none; line-height: 1.5; border-radius: 8px; cursor: pointer; }
+.idx a:hover { background: var(--sel-weak); }
+.idx a.cur { background: var(--sel); color: var(--panel); font-weight: 700; }
+.idx .t { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.idx .st { text-align: center; font-family: var(--mono); color: var(--muted); }
+.idx .st.ok { color: var(--rec); } .idx .st.ask { color: var(--warn); } .idx .st.hold { color: var(--warn); }
+.idx a.cur .st { color: var(--panel); }
+.count { font-size: 12px; color: var(--muted); margin: 0; }
+main { min-width: 0; }
+header.top { padding: 4px 0 14px; border-bottom: 1px solid var(--line); margin-bottom: 8px; }
+h1 { margin: 0; font-size: 22px; line-height: 1.4; font-weight: 700; }
+.meta { font: 12.5px/1.5 var(--mono); color: var(--muted); margin: 2px 0 0; }
+.intro, .summary { background: var(--panel); border: 1px solid var(--line); border-radius: 14px; padding: 14px 18px; margin: 12px 0; }
+.summary { padding: 18px 22px; }
+.q { position: relative; padding: 20px 20px 22px; margin: 8px -20px; border: 2px solid transparent; border-radius: 14px;
+  scroll-margin-top: 24px; transition: background .15s, border-color .15s; }
+.q.active { background: var(--panel); border-color: var(--sel); }
+.q.hold { opacity: .75; }
+.q h2 { margin: 0 0 4px; font-size: 18px; line-height: 1.5; font-weight: 700; display: flex; gap: 10px; align-items: baseline; }
+.pill { font: 700 12px/1 var(--mono); padding: 3px 6px; border: 1px solid var(--line); border-radius: 5px; color: var(--muted); flex: none; }
+.now { display: none; margin-left: auto; flex: none; align-self: center; font: 700 12px/1 var(--sans); color: var(--panel); background: var(--sel); border-radius: 999px; padding: 5px 10px; }
+.q.active .now { display: inline-block; }
+.body { font-size: 14px; color: var(--muted); max-width: 66ch; margin-bottom: 12px; }
 .body p { margin: 0 0 8px; white-space: pre-wrap; }
 .body ul { margin: 0 0 8px; padding-left: 1.4em; }
-.body code { background: var(--bg); border: 1px solid var(--border); border-radius: 4px; padding: 0 4px; font-size: 13px; }
-.body pre { background: var(--bg); border: 1px solid var(--border); border-radius: 8px; padding: 8px 12px; overflow-x: auto; margin: 0 0 8px; }
-.body pre code { border: 0; padding: 0; }
-.body .md-h { margin: 18px 0 8px; line-height: 1.4; }
-.body h3.md-h { font-size: 18px; padding-bottom: 4px; border-bottom: 2px solid var(--accent); }
-.body h4.md-h { font-size: 16px; padding-left: 8px; border-left: 4px solid var(--accent); }
-.body h5.md-h, .body h6.md-h { font-size: 15px; color: var(--accent); }
+.body code { font-family: var(--mono); font-size: 12.5px; background: var(--line-weak); padding: 1px 5px; border-radius: 4px; }
+.body pre { background: var(--bg); border: 1px solid var(--line); border-radius: 8px; padding: 8px 12px; overflow-x: auto; margin: 0 0 8px; }
+.body pre code { border: 0; padding: 0; background: none; }
+.body .md-h { margin: 18px 0 8px; line-height: 1.4; color: var(--text); }
+.body h3.md-h { font-size: 17px; padding-left: 10px; border-left: 3px solid var(--sel); }
+.body h4.md-h { font-size: 15.5px; }
+.body h5.md-h, .body h6.md-h { font-size: 15px; color: var(--muted); }
 .body > .md-h:first-child { margin-top: 0; }
 .body ol { margin: 0 0 8px; padding-left: 1.6em; }
 .body li { margin: 2px 0; }
-.body hr { border: 0; border-top: 1px solid var(--border); margin: 14px 0; }
-.body blockquote { margin: 0 0 8px; padding: 4px 12px; border-left: 4px solid var(--border); color: var(--muted); }
-.summary { padding: 18px 22px; }
+.body hr { border: 0; border-top: 1px solid var(--line); margin: 14px 0; }
+.body blockquote { margin: 0 0 8px; padding: 4px 12px; border-left: 4px solid var(--line); color: var(--muted); }
+.summary .body, .intro .body { max-width: 72ch; font-size: 14.5px; color: var(--text); margin-bottom: 0; }
 .body .tbl { overflow-x: auto; margin: 0 0 8px; }
-.body table { border-collapse: collapse; font-size: 14px; }
-.body th, .body td { border: 1px solid var(--border); padding: 4px 10px; text-align: left; vertical-align: top; }
-.body th { background: var(--bg); font-weight: 700; }
-details.long > summary { cursor: pointer; color: var(--accent); font-size: 13px; margin-bottom: 8px; }
-.opt { display: flex; gap: 10px; align-items: flex-start; padding: 8px 10px; margin: 6px 0;
-  border: 1px solid var(--border); border-radius: 8px; cursor: pointer; }
-.opt:hover { border-color: var(--accent); }
-.opt:has(input:checked) { background: var(--accent-weak); border-color: var(--accent); }
-.opt input { margin-top: 5px; }
-.opt .key { font-weight: 700; min-width: 1.4em; }
-.opt .desc { color: var(--muted); font-size: 13px; display: block; white-space: pre-wrap; }
-.badge { display: inline-block; font-size: 11px; font-weight: 700; color: var(--rec);
-  background: var(--rec-weak); border-radius: 999px; padding: 0 8px; margin-left: 6px; }
-.reason { font-size: 13px; color: var(--rec); background: var(--rec-weak); border-radius: 8px;
-  padding: 8px 12px; margin: 10px 0; white-space: pre-wrap; }
-label.field { display: block; font-size: 13px; color: var(--muted); margin-top: 10px; }
-textarea { width: 100%; min-height: 56px; margin-top: 4px; padding: 8px 10px; resize: vertical;
-  color: var(--text); background: var(--bg); border: 1px solid var(--border); border-radius: 8px;
-  font: inherit; }
-.hold-row { margin-top: 10px; font-size: 14px; }
-.bar { position: sticky; bottom: 0; background: var(--bg); padding: 12px 0;
-  border-top: 1px solid var(--border); display: flex; gap: 10px; flex-wrap: wrap; align-items: center; }
-button { font: inherit; padding: 8px 18px; border-radius: 8px; border: 1px solid var(--border);
-  background: var(--card); color: var(--text); cursor: pointer; }
-button.primary { background: var(--accent); border-color: var(--accent); color: #fff; font-weight: 700; }
+.body table { border-collapse: collapse; font-size: 13.5px; width: 100%; }
+.body th, .body td { padding: 6px 10px; text-align: left; border-bottom: 1px solid var(--line); vertical-align: top; }
+.body th { font-size: 12.5px; color: var(--muted); border-bottom-width: 2px; }
+details.long > summary { cursor: pointer; color: var(--sel); font-size: 13px; margin-bottom: 8px; }
+.opts { display: grid; gap: 6px; max-width: 700px; }
+.q h2 + .opts { margin-top: 10px; }
+.opt { display: grid; grid-template-columns: 30px 1fr; gap: 12px; align-items: start; padding: 9px 12px 9px 10px; background: var(--bg);
+  border: 1px solid var(--line); border-radius: 8px; cursor: pointer; }
+.q:not(.active) .opt { background: var(--panel); }
+.opt:hover { border-color: var(--sel); }
+.opt input { position: absolute; opacity: 0; }
+.cap { width: 30px; height: 30px; display: grid; place-items: center; font: 700 14px/1 var(--mono); border: 1px solid var(--line);
+  border-bottom-width: 3px; border-radius: 6px; background: var(--bg); }
+.opt:has(input:checked) { background: var(--sel-weak); border-color: var(--sel); }
+.opt:has(input:checked) .cap { background: var(--sel); color: var(--panel); border-color: var(--sel); }
+.opt:has(input:focus-visible) { outline: 2px solid var(--sel); outline-offset: 2px; }
+.opt .l { font-weight: 700; }
+.opt .tag { margin-left: 8px; font-size: 12px; font-weight: 700; color: var(--rec); background: var(--rec-weak); border-radius: 999px; padding: 1px 9px; }
+.opt .tag::before { content: "✓ "; }
+.opt .d { display: block; font-size: 13px; color: var(--muted); white-space: pre-wrap; }
+.why { max-width: 700px; margin: 8px 0 0; padding: 6px 12px; background: var(--rec-weak); border-radius: 6px; font-size: 13px; color: var(--rec); white-space: pre-wrap; }
+.more { display: flex; gap: 6px; margin-top: 12px; flex-wrap: wrap; align-items: center; }
+.tg { font: inherit; font-size: 13px; padding: 3px 12px; border-radius: 999px; border: 1px solid var(--line); background: var(--panel); color: var(--muted); cursor: pointer; }
+.tg[aria-expanded=true] { color: var(--text); border-color: var(--sel); background: var(--sel-weak); }
+.tg[aria-pressed=true] { color: var(--warn); border-color: var(--warn); }
+.tg.dot::after { content: " ●"; color: var(--sel); font-size: 10px; }
+.extra { display: none; max-width: 700px; margin-top: 4px; }
+.extra.open { display: block; }
+label.field, .fl { display: block; font-size: 12.5px; color: var(--muted); margin: 14px 0 4px; }
+textarea, input[type=text] { display: block; width: 100%; max-width: 700px; padding: 8px 10px; font: inherit; font-size: 14px; color: var(--text);
+  background: var(--panel); border: 1px solid var(--line); border-radius: 8px; resize: vertical; }
+textarea { min-height: 56px; }
+textarea:focus-visible, input:focus-visible, button:focus-visible { outline: 2px solid var(--sel); outline-offset: 1px; }
+.field-row { display: flex; gap: 8px; max-width: 700px; margin-top: 4px; }
+.field-row input { flex: 1; min-width: 0; margin: 0; }
+label.check { display: flex; gap: 8px; align-items: center; font-size: 13.5px; margin-top: 8px; color: var(--text); }
+.note { font-size: 12.5px; color: var(--muted); max-width: 66ch; margin: 6px 0 0; }
+button { font: inherit; font-size: 14px; padding: 7px 16px; border-radius: 8px; border: 1px solid var(--line); background: var(--panel); color: var(--text); cursor: pointer; }
+button.primary { background: var(--sel); border-color: var(--sel); color: var(--panel); font-weight: 700; }
 button:disabled { opacity: .5; cursor: default; }
-button.clear { font-size: 13px; padding: 2px 12px; margin: 2px 0 4px; color: var(--muted); }
+button.clear { font-size: 12.5px; padding: 1px 10px; color: var(--muted); }
+.seg { display: inline-grid; grid-template-columns: 1fr 1fr; border: 1px solid var(--line); border-radius: 10px; overflow: hidden; background: var(--panel); }
+.seg label { padding: 10px 26px; cursor: pointer; font-weight: 700; display: flex; gap: 10px; align-items: center; }
+.seg label + label { border-left: 1px solid var(--line); }
+.seg input { position: absolute; opacity: 0; }
+.seg label:has(input:checked) { background: var(--sel); color: var(--panel); }
+.seg label:has(input:focus-visible) { outline: 2px solid var(--sel); outline-offset: -4px; }
+.seg label:has(input[value=修正あり]:checked) { background: var(--warn); }
+.bar { position: sticky; bottom: 0; margin: 0 -16px; padding: 10px 16px; background: var(--bg); border-top: 1px solid var(--line);
+  display: flex; gap: 10px; align-items: center; flex-wrap: wrap; }
 #status { font-size: 13px; color: var(--muted); }
 #status.warn { color: var(--warn); }
 #status.ok { color: var(--rec); font-weight: 700; }
-.approve label { margin-right: 18px; cursor: pointer; }
-.files { list-style: none; margin: 8px 0 0; padding: 0; }
-.files li { display: flex; gap: 10px; align-items: center; padding: 4px 10px; margin: 4px 0;
-  border: 1px solid var(--border); border-radius: 8px; font-size: 14px; }
-.files .size { color: var(--muted); font-size: 12px; margin-left: auto; }
-.files button { font-size: 12px; padding: 0 10px; }
+.hint { margin-left: auto; font-size: 12.5px; color: var(--muted); display: flex; gap: 14px; }
+kbd { font: 700 11.5px/1 var(--mono); padding: 2px 6px; border: 1px solid var(--line); border-bottom-width: 2px; border-radius: 4px; background: var(--panel); color: var(--text); }
+@media (max-width: 760px) { .shell { grid-template-columns: 1fr; } aside { display: none; } .hint { display: none; } .q { margin-left: -8px; margin-right: -8px; padding: 16px 12px; } }
+@media (prefers-reduced-motion: reduce) { .q { transition: none; } }
 </style>
 </head>
 <body>
-<main>
-  <h1 id="title"></h1>
-  <div class="meta" id="meta"></div>
-  <div id="content"></div>
-  <div class="bar">
-    <button class="primary" id="submit">送信</button>
-    <button id="copy">Markdown をコピー</button>
-    <button id="abort">中止</button>
-    <span id="status"></span>
-  </div>
-</main>
+<div class="shell">
+  <aside id="side"></aside>
+  <main>
+    <header class="top">
+      <h1 id="title"></h1>
+      <div class="meta" id="meta"></div>
+    </header>
+    <div id="content"></div>
+    <div class="bar">
+      <button class="primary" id="submit">送信</button>
+      <button id="copy">Markdown をコピー</button>
+      <button id="abort">中止</button>
+      <span id="status"></span>
+      <span class="hint" id="hint"></span>
+    </div>
+  </main>
+</div>
 <script id="data" type="application/json">__DATA__</script>
 <script>
 (function () {
@@ -108,9 +155,7 @@ button.clear { font-size: 13px; padding: 2px 12px; margin: 2px 0 4px; color: var
 
   document.title = data.title || 'grill-form';
   document.getElementById('title').textContent = data.title || 'grill-form';
-  document.getElementById('meta').textContent =
-    'セッション: ' + data.session + (data.mode === 'intake' ? '' : ' ／ ラウンド: ' + data.round) +
-    (data.mode === 'intake' ? ' ／ 入力フォーム' : data.mode === 'final' ? ' ／ 最終確認' : '');
+  document.getElementById('meta').textContent = data.session;
 
   function el(tag, cls, text) {
     var e = document.createElement(tag);
@@ -216,74 +261,136 @@ button.clear { font-size: 13px; padding: 2px 12px; margin: 2px 0 4px; color: var
     return d;
   }
 
+  var cards = []; // 質問カード: { el, q, inputs, read }
+  var active = null;
+  var reduce = window.matchMedia && matchMedia('(prefers-reduced-motion: reduce)').matches;
+
+  function setActive(card) {
+    cards.forEach(function (c) { c.el.classList.toggle('active', c === card); });
+    active = card;
+    syncSide();
+  }
+  function scrollTo(card) {
+    card.el.scrollIntoView({ block: 'center', behavior: reduce ? 'auto' : 'smooth' });
+  }
+  function advance(card) {
+    // 単一選択を選んだら、次の質問へ移る（最後の質問ではその場にとどまる）
+    var next = cards[cards.indexOf(card) + 1];
+    if (!next) return;
+    setTimeout(function () { setActive(next); scrollTo(next); }, 220);
+  }
+
+  function extraBox(labelText, area, open) {
+    var box = el('div', open ? 'extra open' : 'extra');
+    box.appendChild(el('label', 'fl', labelText));
+    box.appendChild(area);
+    return box;
+  }
+
   function renderQuestion(q) {
     var card = el('section', 'q');
+    card.id = 'q-' + q.id;
     var h = el('h2');
-    h.appendChild(el('span', 'id', q.id));
+    h.appendChild(el('span', 'pill', q.id));
     h.appendChild(document.createTextNode(q.title));
+    h.appendChild(el('span', 'now', 'いま答えている質問'));
     card.appendChild(h);
     if (q.body) card.appendChild(renderBody(q.body));
 
     var rec = q.recommended || [];
     var inputs = [];
+    var opts = el('div', 'opts');
     (q.options || []).forEach(function (o) {
-      var label = el('label', 'opt');
+      var label = el('label', rec.indexOf(o.key) >= 0 ? 'opt rec' : 'opt');
       var input = document.createElement('input');
       input.type = q.multi ? 'checkbox' : 'radio';
       input.name = q.id;
       input.value = o.key;
       inputs.push(input);
       label.appendChild(input);
+      label.appendChild(el('span', 'cap', o.key));
       var box = el('span');
-      var line = el('span');
-      line.appendChild(el('span', 'key', o.key + '.'));
-      line.appendChild(document.createTextNode(' ' + o.label));
-      if (rec.indexOf(o.key) >= 0) line.appendChild(el('span', 'badge', '推奨'));
-      box.appendChild(line);
-      if (o.desc) box.appendChild(el('span', 'desc', o.desc));
+      box.appendChild(el('span', 'l', o.label));
+      if (rec.indexOf(o.key) >= 0) box.appendChild(el('span', 'tag', '推奨'));
+      if (o.desc) box.appendChild(el('span', 'd', o.desc));
       label.appendChild(box);
-      card.appendChild(label);
+      opts.appendChild(label);
     });
-    if (inputs.length) {
+    if (inputs.length) card.appendChild(opts);
+    if (q.reason) card.appendChild(el('div', 'why', '推奨の理由: ' + q.reason));
+
+    var hasOpts = inputs.length > 0;
+    var note = document.createElement('textarea');
+    var ask = document.createElement('textarea');
+    var noteBox = extraBox(hasOpts
+      ? 'コメント（候補を選んだときは理由・条件の補足。候補を選ばずに書けば、それが回答になります）'
+      : 'コメント（自由記述。これが回答になります）', note, !hasOpts);
+    var askBox = extraBox('聞き返し（Claude への質問。質問が分からない・確認したいことを書く。書くと「要確認」になり、次のラウンドで Claude が説明か補足質問を返します）', ask, false);
+
+    var more = el('div', 'more');
+    function toggle(text, box) {
+      var b = el('button', 'tg', text);
+      b.type = 'button';
+      b.setAttribute('aria-expanded', box.classList.contains('open') ? 'true' : 'false');
+      b.addEventListener('click', function () {
+        b.setAttribute('aria-expanded', box.classList.toggle('open') ? 'true' : 'false');
+      });
+      return b;
+    }
+    var bNote = toggle('コメント', noteBox);
+    var bAsk = toggle('聞き返す', askBox);
+    note.addEventListener('input', function () { bNote.classList.toggle('dot', !!note.value.trim()); });
+    ask.addEventListener('input', function () { bAsk.classList.toggle('dot', !!ask.value.trim()); });
+    var held = false;
+    var bHold = el('button', 'tg', 'あとで決める');
+    bHold.type = 'button';
+    bHold.setAttribute('aria-pressed', 'false');
+    bHold.addEventListener('click', function () {
+      held = !held;
+      bHold.setAttribute('aria-pressed', held ? 'true' : 'false');
+      card.classList.toggle('hold', held);
+      syncSide();
+    });
+    more.appendChild(bNote);
+    more.appendChild(bAsk);
+    more.appendChild(bHold);
+    if (hasOpts) {
       // 一度選ぶとラジオボタンは外せないので、選択なし（コメントだけ）に戻すボタンを置く
       var clear = el('button', 'clear', '選択をクリア');
       clear.type = 'button';
       clear.addEventListener('click', function () {
         inputs.forEach(function (i) { i.checked = false; });
+        syncSide();
       });
-      card.appendChild(clear);
+      more.appendChild(clear);
     }
-    if (q.reason) card.appendChild(el('div', 'reason', '推奨の理由: ' + q.reason));
-
-    var f1 = el('label', 'field', (q.options && q.options.length)
-      ? 'コメント（候補を選んだときは理由・条件の補足。候補を選ばずに書けば、それが回答になります）'
-      : 'コメント（自由記述。これが回答になります）');
-    var note = document.createElement('textarea');
-    f1.appendChild(note);
-    card.appendChild(f1);
-    var f3 = el('label', 'field', '聞き返し（Claude への質問。質問が分からない・確認したいことを書く。書くと「要確認」になり、次のラウンドで Claude が説明か補足質問を返します）');
-    var ask = document.createElement('textarea');
-    f3.appendChild(ask);
-    card.appendChild(f3);
-
-    var hr = el('div', 'hold-row');
-    var holdLabel = el('label');
-    var hold = document.createElement('input');
-    hold.type = 'checkbox';
-    holdLabel.appendChild(hold);
-    holdLabel.appendChild(document.createTextNode(' あとで決める（保留）'));
-    hr.appendChild(holdLabel);
-    card.appendChild(hr);
-    hold.addEventListener('change', function () { card.classList.toggle('hold', hold.checked); });
+    card.appendChild(more);
+    card.appendChild(noteBox);
+    card.appendChild(askBox);
 
     content.appendChild(card);
-    blocks.push(function () {
+    var read = function () {
       var sel = inputs.filter(function (i) { return i.checked; }).map(function (i) { return i.value; });
       var noteText = note.value.trim();
       var askText = ask.value.trim();
-      var state = hold.checked ? '保留' : askText ? '要確認' : ((sel.length || noteText) ? '回答' : '未回答');
+      var state = held ? '保留' : askText ? '要確認' : ((sel.length || noteText) ? '回答' : '未回答');
       return { id: q.id, sel: sel, note: noteText, ask: askText, state: state };
+    };
+    var entry = { el: card, q: q, inputs: inputs, read: read, multi: !!q.multi };
+    cards.push(entry);
+    blocks.push(read);
+    var byMouse = false;
+    card.addEventListener('click', function (e) {
+      byMouse = e.detail > 0;
+      if (active !== entry) setActive(entry);
     });
+    card.addEventListener('change', function (e) {
+      // 矢印キーで動かしただけでは移らない。マウスで選んだときだけ移る（文字キーは別に処理する）
+      if (e.target.type === 'radio' && byMouse) advance(entry);
+      byMouse = false;
+      syncSide();
+    });
+    card.addEventListener('input', syncSide);
   }
 
   function oneLine(s) { return s.replace(/\r?\n/g, ' / '); }
@@ -309,7 +416,7 @@ button.clear { font-size: 13px; padding: 2px 12px; margin: 2px 0 4px; color: var
     content.appendChild(card_md('summary', data.summary || ''));
     var card = el('section', 'q approve');
     card.appendChild(el('h2', '', '承認'));
-    var row = el('div');
+    var row = el('div', 'seg');
     ['承認', '修正あり'].forEach(function (v, i) {
       var l = el('label');
       var r = document.createElement('input');
@@ -331,21 +438,12 @@ button.clear { font-size: 13px; padding: 2px 12px; margin: 2px 0 4px; color: var
     };
   }
 
-  // 入力フォーム: 依頼文・ファイル（複数）・ファイルパス
+  // 入力フォーム: 依頼文・ファイルパス
   var intakeGet = null;
-  var picked = [];
-  function extOf(name) {
-    var m = /\.[A-Za-z0-9]{1,8}$/.exec(name);
-    return m ? m[0].toLowerCase() : '';
-  }
-  function fmtSize(n) {
-    return n >= 1048576 ? (n / 1048576).toFixed(1) + ' MB' : n >= 1024 ? Math.round(n / 1024) + ' KB' : n + ' B';
-  }
   function renderIntake() {
     content.appendChild(card_md('intro', data.intro ||
-      '依頼文と、参考にしたいファイルを渡してください。どれか 1 つだけでも構いません。\n' +
-      '**ファイル**は、選んだものを送信時にブラウザがダウンロード（保存）し、Claude が受け取ります。' +
-      '大きいファイルや保存場所が決まっているファイルは**ファイルパス**欄に書くと、Claude が直接読みます。'));
+      '依頼文と、参考にしたいファイルのパスを渡してください。どちらか 1 つだけでも構いません。\n' +
+      'ファイルは**ファイルパス**欄に書くと、Claude が直接読みます。'));
     var card = el('section', 'q');
     card.appendChild(el('h2', '', '依頼文'));
     var f1 = el('label', 'field', '何を詰めたいか、背景、分かっている制約など（自由記述）');
@@ -356,59 +454,58 @@ button.clear { font-size: 13px; padding: 2px 12px; margin: 2px 0 4px; color: var
     card.appendChild(f1);
     content.appendChild(card);
 
-    var fcard = el('section', 'q');
-    fcard.appendChild(el('h2', '', 'ファイル'));
-    var pick = document.createElement('input');
-    pick.type = 'file'; pick.multiple = true;
-    fcard.appendChild(pick);
-    var list = el('ul', 'files');
-    fcard.appendChild(list);
-    function drawFiles() {
-      list.textContent = '';
-      picked.forEach(function (f, i) {
-        var li = el('li');
-        li.appendChild(el('span', '', f.name));
-        li.appendChild(el('span', 'size', fmtSize(f.size)));
-        var rm = el('button', '', '削除'); rm.type = 'button';
-        rm.addEventListener('click', function () { picked.splice(i, 1); drawFiles(); });
-        li.appendChild(rm);
-        list.appendChild(li);
-      });
-    }
-    pick.addEventListener('change', function () {
-      Array.prototype.forEach.call(pick.files, function (f) { picked.push(f); });
-      pick.value = '';
-      drawFiles();
-    });
-    content.appendChild(fcard);
-
     var pcard = el('section', 'q');
     pcard.appendChild(el('h2', '', 'ファイルパス'));
     var f2 = el('label', 'field', '1 行に 1 つ。例: C:/Users/.../資料.pptx');
     var paths = document.createElement('textarea');
     f2.appendChild(paths);
     pcard.appendChild(f2);
+    var f5 = el('label', 'field', '');
+    var pickFiles = document.createElement('input');
+    pickFiles.type = 'checkbox';
+    f5.appendChild(pickFiles);
+    f5.appendChild(document.createTextNode(' ダイアログで選ぶ（送信後、Claude がファイルを選ぶダイアログを開きます。複数選べます）'));
+    pcard.appendChild(f5);
     content.appendChild(pcard);
+
+    var scard = el('section', 'q');
+    scard.appendChild(el('h2', '', '保存先（親フォルダ）'));
+    var f3 = el('label', 'field', 'SPEC を置くフォルダ。空欄なら、Claude Code を動かしているフォルダ（作業フォルダ）の直下。相対パスは作業フォルダから、絶対パスはそのまま使われます');
+    var dest = document.createElement('input');
+    dest.type = 'text';
+    f3.appendChild(dest);
+    scard.appendChild(f3);
+    if (window.showDirectoryPicker) {
+      // ブラウザはフォルダ名しか返さないので、選べるのは作業フォルダ直下のフォルダだけ
+      var pickBtn = el('button', '', 'フォルダを選ぶ…');
+      pickBtn.type = 'button';
+      pickBtn.addEventListener('click', function () {
+        window.showDirectoryPicker({ mode: 'read' }).then(function (h) {
+          dest.value = h.name;
+        }, function (e) {
+          if (e && e.name !== 'AbortError') setStatus('フォルダを選べませんでした: ' + e.message, 'warn');
+        });
+      });
+      scard.appendChild(pickBtn);
+      scard.appendChild(el('div', 'field', '「フォルダを選ぶ…」で選べるのは作業フォルダ直下のフォルダだけです（フォルダ名だけが入ります）。それ以外の場所は、パスを書くか、下の「ダイアログで選ぶ」を使ってください。'));
+    }
+    var f4 = el('label', 'field', '');
+    var pickDlg = document.createElement('input');
+    pickDlg.type = 'checkbox';
+    f4.appendChild(pickDlg);
+    f4.appendChild(document.createTextNode(' ダイアログで選ぶ（送信後、Claude がフォルダ選択ダイアログを開きます）'));
+    pickDlg.addEventListener('change', function () { dest.disabled = pickDlg.checked; });
+    scard.appendChild(f4);
+    content.appendChild(scard);
 
     intakeGet = function () {
       return {
         request: req.value.trim(),
-        files: picked.slice(),
+        dest: pickDlg.checked ? 'ダイアログで選ぶ' : dest.value.trim(),
         paths: paths.value.split(/\r?\n/).map(function (l) { return l.trim(); }).filter(Boolean)
+          .concat(pickFiles.checked ? ['ダイアログで選ぶ'] : [])
       };
     };
-  }
-
-  // 選んだファイルを連番の名前でダウンロードする（Playwright MCP が出力先フォルダに保存する）
-  function downloadPicked(files) {
-    files.forEach(function (f, i) {
-      var a = document.createElement('a');
-      a.href = URL.createObjectURL(f);
-      a.download = 'grill-in-' + (i + 1) + extOf(f.name);
-      document.body.appendChild(a);
-      a.click();
-      a.remove();
-    });
   }
 
   if (data.mode === 'intake') {
@@ -420,22 +517,97 @@ button.clear { font-size: 13px; padding: 2px 12px; margin: 2px 0 4px; color: var
     (data.questions || []).forEach(renderQuestion);
   }
 
+  // 左の一覧: 進み具合と、質問画面では質問ごとの回答状況
+  var STATE_MARK = { '回答': ['●', 'ok'], '保留': ['△', 'hold'], '要確認': ['?', 'ask'], '未回答': ['○', ''] };
+  var idxLinks = [];
+  var countEl = null;
+  function buildSide() {
+    var side = document.getElementById('side');
+    var steps = ['入力', '事前確認', '質問', '最終確認'];
+    var curIdx = data.mode === 'intake' ? 0 : data.mode === 'final' ? 3 : (data.round === 0 ? 1 : 2);
+    side.appendChild(el('h2', '', '進み具合'));
+    var ol = el('ol', 'steps');
+    steps.forEach(function (name, i) {
+      var text = name;
+      if (i === curIdx && data.mode === 'round' && data.round > 0) text = '質問 第 ' + data.round + ' ラウンド';
+      if (i === curIdx && data.mode === 'final') text = '最終確認 第 ' + data.round + ' 版';
+      ol.appendChild(el('li', i < curIdx ? 'done' : i === curIdx ? 'cur' : '', text));
+    });
+    side.appendChild(ol);
+    if (data.mode !== 'round' || !cards.length) return;
+    side.appendChild(el('h2', '', 'この画面の質問'));
+    var ul = el('ul', 'idx');
+    cards.forEach(function (c) {
+      var li = el('li');
+      var a = el('a');
+      a.href = '#' + c.el.id;
+      a.appendChild(el('span', '', c.q.id));
+      a.appendChild(el('span', 't', c.q.title));
+      var st = el('span', 'st', '○');
+      a.appendChild(st);
+      a.addEventListener('click', function (e) { e.preventDefault(); setActive(c); scrollTo(c); });
+      li.appendChild(a);
+      ul.appendChild(li);
+      idxLinks.push({ a: a, st: st, card: c });
+    });
+    side.appendChild(ul);
+    countEl = el('p', 'count');
+    side.appendChild(countEl);
+  }
+  function syncSide() {
+    var n = 0;
+    idxLinks.forEach(function (l) {
+      var state = l.card.read().state;
+      var mark = STATE_MARK[state];
+      l.st.textContent = mark[0];
+      l.st.className = 'st ' + mark[1];
+      l.a.classList.toggle('cur', l.card === active);
+      if (state === '回答') n++;
+    });
+    if (countEl) countEl.textContent = '回答 ' + n + ' / ' + cards.length;
+  }
+  buildSide();
+  if (data.mode === 'round' && cards.length) {
+    setActive(cards[0]);
+    var hint = document.getElementById('hint');
+    function kbd(t) { return el('kbd', '', t); }
+    var h1 = el('span'); h1.appendChild(kbd('A')); h1.appendChild(document.createTextNode(' など候補の文字で選ぶ'));
+    var h2 = el('span'); h2.appendChild(kbd('J')); h2.appendChild(kbd('K')); h2.appendChild(document.createTextNode(' 移動'));
+    hint.appendChild(h1);
+    hint.appendChild(h2);
+  }
+  document.addEventListener('keydown', function (e) {
+    if (data.mode !== 'round' || !cards.length || e.ctrlKey || e.metaKey || e.altKey) return;
+    var t = e.target;
+    if (/^(TEXTAREA|BUTTON|SUMMARY)$/.test(t.tagName) || (t.tagName === 'INPUT' && t.type === 'text')) return;
+    var k = e.key.toLowerCase();
+    if (k === 'j' || k === 'k') {
+      var i = Math.max(0, Math.min(cards.length - 1, cards.indexOf(active) + (k === 'j' ? 1 : -1)));
+      setActive(cards[i]);
+      scrollTo(cards[i]);
+    } else if (active) {
+      var inp = active.inputs.filter(function (x) { return x.value.toLowerCase() === k; })[0];
+      if (!inp) return;
+      e.preventDefault();
+      inp.checked = inp.type === 'radio' ? true : !inp.checked;
+      if (inp.type === 'radio') advance(active);
+      syncSide();
+    }
+  });
+
   function build() {
     // 最終確認は round ではなく final（版番号）として書き、ラウンドの回答と区別する
     var head = '---\nsession: ' + data.session + '\n' +
       (data.mode === 'intake' ? 'intake: 1' : (data.mode === 'final' ? 'final: ' : 'round: ') + data.round) + '\n---\n';
     if (data.mode === 'intake') {
       var it = intakeGet();
-      if (!it.request && !it.files.length && !it.paths.length) {
-        return { error: '依頼文・ファイル・ファイルパスのどれかを入力してください。' };
+      if (!it.request && !it.paths.length) {
+        return { error: '依頼文かファイルパスのどちらかを入力してください。' };
       }
-      var md = head + '## 依頼文\n' + it.request + '\n\n## ファイル\n';
-      it.files.forEach(function (f, i) {
-        md += '- grill-in-' + (i + 1) + extOf(f.name) + ' ← ' + f.name + '（' + f.size + ' バイト）\n';
-      });
-      md += '\n## ファイルパス\n';
+      var md = head + '## 依頼文\n' + it.request + '\n\n## ファイルパス\n';
       it.paths.forEach(function (pth) { md += '- ' + pth + '\n'; });
-      return { md: md, files: it.files };
+      md += '\n## 保存先\n' + it.dest.replace(/\s*\r?\n\s*/g, ' ') + '\n';
+      return { md: md };
     }
     if (data.mode === 'final') {
       var a = approveGet();
@@ -457,10 +629,9 @@ button.clear { font-size: 13px; padding: 2px 12px; margin: 2px 0 4px; color: var
       setStatus('未回答: ' + r.unanswered.join(', ') + '。このままなら、もう一度「送信」を押してください。', 'warn');
       return;
     }
-    if (r.files && r.files.length) downloadPicked(r.files);
     window.__answersMd = r.md;
     window.__submitted = true;
-    setStatus('送信しました。' + (r.files && r.files.length ? 'ファイル ' + r.files.length + ' 件をダウンロードしました。' : '') + 'Claude が自動で受け取ります。', 'ok');
+    setStatus('送信しました。Claude が自動で受け取ります。', 'ok');
   });
 
   // 中止: 2回目の押下で確定する（alert/confirm はブラウザ操作が止まるので使わない）
@@ -483,7 +654,7 @@ button.clear { font-size: 13px; padding: 2px 12px; margin: 2px 0 4px; color: var
     var r = build();
     if (r.error) { setStatus(r.error, 'warn'); return; }
     var done = function () {
-      setStatus('Markdown をコピーしました。' + (r.files && r.files.length ? '（選んだファイルは含まれません。ファイルパス欄を使ってください）' : ''), 'ok');
+      setStatus('Markdown をコピーしました。', 'ok');
     };
     var fallback = function () {
       var t = document.createElement('textarea');

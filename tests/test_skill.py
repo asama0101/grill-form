@@ -53,3 +53,65 @@ def test_相対リンクと地の文の相対パスがない(text):
     prose = re.findall(r"(?:^|[\s`(\"'])\.{1,2}/", text, re.MULTILINE)
     assert links == []
     assert prose == []
+
+
+# 廃止した仕様の語。SKILL.md・README.md・grill_form.py のどれにも残さない。
+REMOVED_TERMS = [
+    "grill-specs",
+    "request.md",
+    "inputs/",
+    "GRILL_FORM_DIR",
+    "soffice",
+    "pdftoppm",
+    "ファイル選択",
+]
+
+
+def test_SKILLにspec_pathの手順がある(text):
+    assert "spec-path" in text
+
+
+def test_SKILLが存在しないパスの再入力を求める(text):
+    assert "再入力" in text
+
+
+@pytest.mark.parametrize("term", REMOVED_TERMS)
+def test_SKILLに廃止した語が残っていない(text, term):
+    assert term not in text
+
+
+@pytest.mark.parametrize("term", REMOVED_TERMS)
+def test_READMEとスクリプトに廃止した語が残っていない(term):
+    for name in ("README.md", "grill_form.py"):
+        body = (ROOT / name).read_text(encoding="utf-8")
+        assert term not in body, name
+
+
+def test_stageサブコマンドの記述がどこにも残っていない(text):
+    for name in ("README.md", "grill_form.py"):
+        body = (ROOT / name).read_text(encoding="utf-8")
+        assert re.search(r"\bstage\b", body) is None, name
+    assert re.search(r"\bstage\b", text) is None
+
+
+def test_SKILLは保存先を入力フォームで受け取りRound0は3点のまま(text):
+    assert "`## 保存先`" in text
+    assert "次の3点を" in text
+    assert "次の4点を" not in text
+
+
+def test_SKILLにダイアログで選ぶ手順がある(text):
+    assert "pick-dir" in text
+    assert "ダイアログで選ぶ" in text
+
+
+def test_SKILLにファイルをダイアログで選ぶ手順がある(text):
+    assert "pick-file" in text
+
+
+def test_SKILLは保存先のフォルダの存在を確認する(text):
+    assert "存在するフォルダか確認" in text
+
+
+def test_SKILLは保存先の確認を承認より前の入力フォームの手順で行う(text):
+    assert text.index("存在するフォルダか確認") < text.index("\n10. ")

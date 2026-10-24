@@ -1,37 +1,36 @@
 """grill-form スキル用のスクリプト。
 
 サブコマンド:
-  init   --theme T [--parent P]
-                              一時セッションフォルダ（OS の一時フォルダ配下）を作り、
-                              次の2行を出力する。
-                              1行目: 一時セッションのパス
-                              （HTML・回答・質問 JSON を置く）
-                              2行目: SPEC の保存先 <親>/<日時>_<テーマ>/SPEC.md
-                              （承認時に書く）
-                              （親フォルダの決め方: --parent >
-                               環境変数 GRILL_FORM_DIR > grill-specs。
-                               相対パスは git のルート（なければカレントフォルダ）
-                               から解決する）
+  init   --theme T            一時セッションフォルダ（OS の一時フォルダ配下）を作り、
+                              そのパスを1行で出力する
+                              （HTML・回答・質問 JSON を置く）。
                               作成時に、3 日より古い一時セッションを削除する
+  spec-path --theme T [--parent P]
+                              SPEC の保存先 <親>/SPEC-<テーマ>-<日付>.md を
+                              決めて出力する（ファイルは作らない）。
+                              親は --parent、なければ作業フォルダ
+                              （このスクリプトのカレントフォルダ）。
+                              相対パスは作業フォルダから解決する。
+                              同名のファイルがあれば末尾に連番を付ける
+  pick-dir                    OS のフォルダ選択ダイアログを開き、選んだフォルダの
+                              パスを出力する（初期位置は作業フォルダ）。
+                              取り消しは終了コード 1、ダイアログを開けない
+                              （tkinter がない・画面がない）ときは 3
+  pick-file                   OS のファイルを選ぶダイアログ（複数選択可）を開き、選んだ
+                              ファイルのパスを1行ずつ出力する（初期位置は作業フォルダ）。
+                              終了コードは pick-dir と同じ
   render --session-dir D --round N [--final] --input J.json
                               質問 JSON から round-N.html を生成し、パスを出力する。
                               --final のときは N を最終確認の版番号とし、
                               final-N.html を生成する
                               （修正のたびに版を上げ、前の版を上書きしない）
   render --session-dir D --intake [--input J.json]
-                              入力フォーム（依頼文・ファイル・パス）intake.html を
+                              入力フォーム（依頼文・ファイルパス）intake.html を
                               生成する。J.json は {"title","intro","request"} で
                               省略可（request は依頼文欄の初期入力）
-  stage  --session-dir D --file SRC [--name N]
-                              入力ファイル SRC を D/inputs/ に取り込む
-                              （承認時に SPEC と同じフォルダへ残る）。
-                              --name は元のファイル名
-                              （SPEC.md・request.md と重なる名前や重複は
-                               自動で別名にする）
   cleanup --session-dir D --spec S [--yes]
                               一時セッション D を削除対象として表示する。
-                              --yes を付けたときだけ、D/request.md と D/inputs/ の
-                              中身を SPEC（S）と同じフォルダへ移してから D を削除する。
+                              --yes を付けたときだけ D を削除する。
                               SPEC（S）がなければ何もしない（承認前は消さない）
 
 質問 JSON:
@@ -43,51 +42,24 @@ final の JSON:
   {"title": "...", "intro": "...", "summary": "（SPEC 案の本文）"}
 """
 
+from __future__ import annotations
+
 import argparse
 import datetime
 import json
-import os
 import re
 import shutil
-import subprocess
 import sys
 import tempfile
 import time
 from pathlib import Path
 
 __version__ = "1.0.0"
-ENV_DIR = "GRILL_FORM_DIR"
-DEFAULT_DIR = "grill-specs"
-SPEC_NAME = "SPEC.md"
-REQUEST_NAME = "request.md"
-INPUTS_NAME = "inputs"
-RESERVED = {SPEC_NAME, REQUEST_NAME}
+SPEC_PREFIX = "SPEC"
 TEMP_ROOT_NAME = "grill-form"
 KEEP_DAYS = 3
 TEMPLATE = Path(__file__).with_name("grill_form_template.html")
 INVALID = re.compile(r'[\\/:*?"<>|\s]+')
-
-
-def base_dir() -> Path:
-    # 相対パスの基準。git のルート、なければカレントフォルダ
-    git = shutil.which("git")
-    if git is None:
-        return Path.cwd()
-    try:
-        top = subprocess.run(  # noqa: S603  引数は固定で、git は which で解決した実体
-            [git, "rev-parse", "--show-toplevel"],
-            capture_output=True,
-            text=True,
-            check=True,
-        ).stdout.strip()
-        return Path(top)
-    except (OSError, subprocess.CalledProcessError):
-        return Path.cwd()
-
-
-def session_root(parent) -> Path:
-    root = Path(parent or os.environ.get(ENV_DIR) or DEFAULT_DIR).expanduser()
-    return root if root.is_absolute() else (base_dir() / root).resolve()
 
 
 def temp_root() -> Path:
@@ -104,16 +76,103 @@ def prune_old(root: Path) -> None:
             shutil.rmtree(d, ignore_errors=True)
 
 
+def normalize_theme(theme: str) -> str:
+    return INVALID.sub("-", theme).strip("-") or "untitled"
+
+
+def spec_path(
+    theme: str,
+    parent: str | None = None,
+    today: datetime.date | None = None,
+) -> Path:
+    # 作業フォルダ基準で SPEC のパスを決める。既存のファイルは上書きしない
+    base = Path(parent).expanduser() if parent else Path()
+    base = (Path.cwd() / base).resolve() if not base.is_absolute() else base
+    day = (today or datetime.date.today()).isoformat()
+    stem = f"{SPEC_PREFIX}-{normalize_theme(theme)}-{day}"
+    cand, n = base / f"{stem}.md", 2
+    while cand.exists():
+        cand = base / f"{stem}-{n}.md"
+        n += 1
+    return cand
+
+
 def cmd_init(args) -> int:
     stamp = datetime.datetime.now().strftime("%Y-%m-%d_%H%M")
-    theme = INVALID.sub("-", args.theme).strip("-") or "untitled"
     root = temp_root()
     prune_old(root)
-    tmp = root / f"{stamp}_{theme}"
+    tmp = root / f"{stamp}_{normalize_theme(args.theme)}"
     tmp.mkdir(parents=True, exist_ok=True)
-    spec = session_root(args.parent) / f"{stamp}_{theme}" / SPEC_NAME
     print(tmp)
-    print(spec)
+    return 0
+
+
+def cmd_spec_path(args) -> int:
+    path = spec_path(args.theme, args.parent)
+    if path.parent.exists() and not path.parent.is_dir():
+        print(f"保存先の親がフォルダではありません: {path.parent}", file=sys.stderr)
+        return 2
+    print(path)
+    return 0
+
+
+def run_dialog(pick):
+    # OS の選択ダイアログ（tkinter）を最前面で開き、pick(filedialog, root) の結果を返す
+    import tkinter
+    from tkinter import filedialog
+
+    try:
+        root = tkinter.Tk()
+    except tkinter.TclError as e:
+        raise RuntimeError(str(e)) from e
+    root.withdraw()
+    root.attributes("-topmost", True)
+    try:
+        return pick(filedialog, root)
+    finally:
+        root.destroy()
+
+
+def ask_directory(initial: Path) -> str:
+    # 取り消しは空文字を返す
+    return run_dialog(
+        lambda fd, root: fd.askdirectory(initialdir=str(initial), parent=root)
+    )
+
+
+def ask_files(initial: Path) -> tuple:
+    # 複数選択できる。取り消しは空のタプルを返す
+    return tuple(
+        run_dialog(
+            lambda fd, root: fd.askopenfilenames(initialdir=str(initial), parent=root)
+        )
+    )
+
+
+def cmd_pick_dir(args) -> int:
+    try:
+        chosen = ask_directory(Path.cwd())
+    except (ImportError, RuntimeError) as e:
+        print(f"フォルダ選択のダイアログを開けません: {e}", file=sys.stderr)
+        return 3
+    if not chosen:
+        print("フォルダの選択が取り消されました。", file=sys.stderr)
+        return 1
+    print(Path(chosen))
+    return 0
+
+
+def cmd_pick_file(args) -> int:
+    try:
+        chosen = ask_files(Path.cwd())
+    except (ImportError, RuntimeError) as e:
+        print(f"ファイルを選ぶダイアログを開けません: {e}", file=sys.stderr)
+        return 3
+    if not chosen:
+        print("ファイルの選択が取り消されました。", file=sys.stderr)
+        return 1
+    for f in chosen:
+        print(Path(f))
     return 0
 
 
@@ -138,7 +197,7 @@ def cmd_render(args) -> int:
         )
         payload["mode"] = "intake"
         payload["round"] = 0
-        payload.setdefault("title", "入力（依頼文・ファイル）")
+        payload.setdefault("title", "入力（依頼文・ファイルパス）")
         out = d / "intake.html"
     else:
         if args.round is None or not args.input:
@@ -163,51 +222,6 @@ def cmd_render(args) -> int:
     return 0
 
 
-def unique_name(name: str, taken) -> str:
-    # SPEC.md・request.md と重なる名前や、取り込み済みの名前と重複する名前を別名にする
-    name = Path(name).name or "input"
-    if name in RESERVED:
-        name = f"input-{name}"
-    stem, suffix = Path(name).stem, Path(name).suffix
-    cand, n = name, 2
-    while cand in taken:
-        cand = f"{stem}-{n}{suffix}"
-        n += 1
-    return cand
-
-
-def cmd_stage(args) -> int:
-    d = Path(args.session_dir).resolve()
-    if d.parent != temp_root() or not d.is_dir():
-        print(f"{d} は grill-form の一時セッションではありません。", file=sys.stderr)
-        return 1
-    src = Path(args.file)
-    if not src.is_file():
-        print(f"ファイルがありません: {src}", file=sys.stderr)
-        return 1
-    dest_dir = d / INPUTS_NAME
-    dest_dir.mkdir(exist_ok=True)
-    name = unique_name(args.name or src.name, {p.name for p in dest_dir.iterdir()})
-    shutil.copy2(src, dest_dir / name)
-    print(name)
-    return 0
-
-
-def keep_inputs(d: Path, spec: Path) -> None:
-    # 依頼文と入力ファイルを、SPEC と同じフォルダへ移す
-    dest = spec.parent
-    req = d / REQUEST_NAME
-    if req.is_file():
-        shutil.copy2(req, dest / REQUEST_NAME)
-    src_dir = d / INPUTS_NAME
-    if src_dir.is_dir():
-        for f in sorted(src_dir.iterdir()):
-            if f.is_file():
-                shutil.copy2(
-                    f, dest / unique_name(f.name, {p.name for p in dest.iterdir()})
-                )
-
-
 def cmd_cleanup(args) -> int:
     d = Path(args.session_dir).resolve()
     # 一時セッション以外（プロジェクト内など）は消さない
@@ -226,7 +240,6 @@ def cmd_cleanup(args) -> int:
     print(f"削除対象{'' if args.yes else '（--yes で削除）'}: {d}")
     if args.yes:
         try:
-            keep_inputs(d, Path(args.spec))
             shutil.rmtree(d)
         except OSError as e:
             print(
@@ -237,7 +250,7 @@ def cmd_cleanup(args) -> int:
                 file=sys.stderr,
             )
             return 1
-        print("削除しました。SPEC と入力ファイルは残っています。")
+        print("削除しました。SPEC は残っています。")
     return 0
 
 
@@ -252,14 +265,21 @@ def main() -> int:
 
     p = sub.add_parser("init")
     p.add_argument("--theme", required=True)
+    p.set_defaults(fn=cmd_init)
+
+    p = sub.add_parser("spec-path")
+    p.add_argument("--theme", required=True)
     p.add_argument(
         "--parent",
-        help=(
-            "SPEC を保存する親フォルダ"
-            f"（既定: 環境変数 {ENV_DIR}、なければ {DEFAULT_DIR}）"
-        ),
+        help="SPEC を保存する親フォルダ（既定: 作業フォルダ）",
     )
-    p.set_defaults(fn=cmd_init)
+    p.set_defaults(fn=cmd_spec_path)
+
+    p = sub.add_parser("pick-dir")
+    p.set_defaults(fn=cmd_pick_dir)
+
+    p = sub.add_parser("pick-file")
+    p.set_defaults(fn=cmd_pick_file)
 
     p = sub.add_parser("render")
     p.add_argument("--session-dir", required=True)
@@ -271,15 +291,11 @@ def main() -> int:
     p.add_argument("--input")
     p.set_defaults(fn=cmd_render)
 
-    p = sub.add_parser("stage")
-    p.add_argument("--session-dir", required=True)
-    p.add_argument("--file", required=True, help="取り込むファイル")
-    p.add_argument("--name", help="元のファイル名（省略時は --file のファイル名）")
-    p.set_defaults(fn=cmd_stage)
-
     p = sub.add_parser("cleanup")
     p.add_argument("--session-dir", required=True)
-    p.add_argument("--spec", required=True, help="承認済み SPEC のパス（init の2行目）")
+    p.add_argument(
+        "--spec", required=True, help="承認済み SPEC のパス（spec-path の出力）"
+    )
     p.add_argument("--yes", action="store_true", help="一覧だけでなく実際に削除する")
     p.set_defaults(fn=cmd_cleanup)
 
