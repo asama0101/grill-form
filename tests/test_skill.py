@@ -123,6 +123,8 @@ REMOVED_TERMS = [
     "soffice",
     "pdftoppm",
     "ファイル選択",
+    "pick-file",
+    "tkinter",
 ]
 
 
@@ -163,8 +165,21 @@ def test_SKILLに保存先をダイアログで選ぶ手順はない(text):
     assert "pick-dir" not in text
 
 
-def test_SKILLにファイルをダイアログで選ぶ手順がある(text):
-    assert "pick-file" in text
+def test_SKILLにpick_fileの手順はない(text):
+    assert "pick-file" not in text
+    assert "ダイアログで選ぶ" not in text
+
+
+@pytest.mark.parametrize(
+    "present",
+    ["## 更新", "--answers", "## 参考資料", "フォルダを読み直す"],
+)
+def test_SKILLに読み直しと新しい回答の節の手順がある(text, present):
+    assert present in text
+
+
+def test_SKILLに旧いファイルパス節の記述がない(text):
+    assert "## ファイルパス" not in text
 
 
 def test_SKILLは保存先のフォルダの存在を確認する(text):

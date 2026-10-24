@@ -124,6 +124,30 @@ button.clear { font-size: 12.5px; padding: 1px 10px; color: var(--muted); }
 kbd { font: 700 11.5px/1 var(--mono); padding: 2px 6px; border: 1px solid var(--line); border-bottom-width: 2px; border-radius: 4px; background: var(--panel); color: var(--text); }
 @media (max-width: 760px) { .shell { grid-template-columns: 1fr; } aside { display: none; } .hint { display: none; } .q { margin-left: -8px; margin-right: -8px; padding: 16px 12px; } }
 @media (prefers-reduced-motion: reduce) { .q { transition: none; } }
+.in-refresh { display: flex; gap: 12px; align-items: center; padding-top: 12px; padding-bottom: 12px; }
+.in-refresh .note { margin: 0; }
+.in-box { margin-top: 12px; }
+.in-box > .note { margin: 0 0 6px; }
+.in-pick { display: grid; grid-template-columns: 240px 1fr; border: 1px solid var(--line); border-radius: 10px; overflow: hidden;
+  min-height: 200px; margin: 8px 0; max-width: 100%; }
+.in-pick.one { grid-template-columns: 1fr; }
+.in-tree { border-right: 1px solid var(--line); padding: 6px; background: var(--bg); font-size: 14px; overflow: auto; max-height: 260px; }
+.in-pick.one .in-tree { border-right: 0; max-height: 220px; }
+.in-node { display: flex; align-items: center; gap: 6px; padding: 3px 6px; border-radius: 6px; cursor: pointer; white-space: nowrap; }
+.in-node:hover { background: var(--sel-weak); }
+.in-node.cur { background: var(--sel); color: var(--panel); font-weight: 700; }
+.in-tw { display: inline-block; width: 12px; color: var(--muted); font-size: 10px; }
+.in-node.cur .in-tw { color: var(--panel); }
+.in-node input { margin: 0; }
+.in-files { padding: 8px 12px; overflow: auto; max-height: 260px; }
+.in-where { font: 12px var(--mono); color: var(--muted); margin-bottom: 6px; word-break: break-all; }
+.in-file { display: flex; gap: 8px; align-items: center; padding: 4px 0; font-size: 14px; cursor: pointer; user-select: none; }
+.in-chosen { background: var(--bg); border: 1px solid var(--line); border-radius: 8px; padding: 8px 12px; font-size: 13.5px; margin-top: 8px; max-width: 700px; }
+.in-chosen b { font-size: 12px; color: var(--muted); }
+.in-it { display: flex; gap: 10px; align-items: center; padding: 3px 0; border-top: 1px solid var(--line-weak); }
+.in-p { font: 12.5px var(--mono); flex: 1; word-break: break-all; }
+.in-tag { font: 700 11px var(--mono); padding: 2px 6px; border-radius: 5px; border: 1px solid var(--line); color: var(--muted); }
+.note.warn { color: var(--warn); }
 </style>
 </head>
 <body>
@@ -438,54 +462,312 @@ kbd { font: 700 11.5px/1 var(--mono); padding: 2px 6px; border: 1px solid var(--
     };
   }
 
-  // 入力フォーム: 依頼文・ファイルパス
+  // 入力フォーム: 依頼文・参考資料・保存先
   var intakeGet = null;
+  function intakeMarkdown(it, refresh) {
+    var md = '---\nsession: ' + data.session + '\nintake: 1\n---\n';
+    if (refresh) md += '## 更新\n- 読み直し: はい\n\n';
+    md += '## 依頼文\n- 種別: ' + (it.kind === 'file' ? 'ファイル' : 'テキスト') + '\n' +
+      (it.kind === 'file' ? it.requestFile : it.request) + '\n\n';
+    if (refresh) {
+      // 選ばれていない側の入力も退避する（作り直しで消えないように）
+      var other = it.kind === 'file' ? it.request : it.requestFile;
+      if (other) {
+        md += '## 保留の依頼文\n- 種別: ' + (it.kind === 'file' ? 'テキスト' : 'ファイル') + '\n' + other + '\n\n';
+      }
+    }
+    md += '## 参考資料\n';
+    it.paths.forEach(function (p) { md += '- ' + p + '\n'; });
+    md += '\n## 保存先\n' + it.dest.replace(/\s*\r?\n\s*/g, ' ') + '\n';
+    return md;
+  }
+
   function renderIntake() {
-    content.appendChild(card_md('intro', data.intro ||
-      '依頼文と、参考にしたいファイルのパスを渡してください。どちらか 1 つだけでも構いません。\n' +
-      'ファイルは**ファイルパス**欄に書くと、Claude が直接読みます。'));
-    var card = el('section', 'q');
-    card.appendChild(el('h2', '', '依頼文'));
-    var f1 = el('label', 'field', '何を詰めたいか、背景、分かっている制約など（自由記述）');
+    if (data.intro) content.appendChild(card_md('intro', data.intro));
+    var root = data.tree;
+    var sep = root.path.indexOf('\\') >= 0 ? '\\' : '/';
+    function withSep(d) { return d.charAt(d.length - 1) === sep ? d : d + sep; }
+    var open = {};
+    open[root.path] = true;
+    var nodes = {};      // フォルダのパス → ノード
+    var fileSet = {};    // 一覧にあるファイルのフルパス
+    (function index(n) {
+      nodes[n.path] = n;
+      n.files.forEach(function (f) { fileSet[withSep(n.path) + f] = true; });
+      n.dirs.forEach(index);
+    })(root);
+    function expandTo(p) {
+      Object.keys(nodes).forEach(function (d) {
+        if (p.indexOf(withSep(d)) === 0) open[d] = true;
+      });
+    }
+    function dirOf(p) { return p.slice(0, p.lastIndexOf(sep)); }
+
+    var ok = { docx: 1, pdf: 1, pptx: 1, xlsx: 1, md: 1, txt: 1 };
+    function shown(n) {
+      return n.files.filter(function (f) { return ok[f.split('.').pop().toLowerCase()]; });
+    }
+
+    // 状態（読み直しのときは、返した回答から復元する）
+    var kind = data.kind === 'file' ? 'file' : 'text';
+    var reqSel = { cur: root.path, file: '' };
+    var inSel = { cur: root.path, picked: [], last: null };
+    var outSel = { sel: root.path };
+    var extraReq = '';
+    var extraPaths = [];
+    var extraOut = '';
+    if (data.request_file) {
+      if (fileSet[data.request_file]) { reqSel.file = data.request_file; reqSel.cur = dirOf(data.request_file); }
+      else extraReq = data.request_file;
+    }
+    (data.paths || []).forEach(function (p) {
+      if (fileSet[p]) { inSel.picked.push(p); inSel.cur = dirOf(p); }
+      else extraPaths.push(p);
+    });
+    if (data.dest && data.dest !== data.cwd) {
+      if (nodes[data.dest]) outSel.sel = data.dest;
+      else extraOut = data.dest;
+    }
+    [reqSel.file].concat(inSel.picked).concat([outSel.sel]).forEach(function (p) { if (p) expandTo(p); });
+
+    // 依頼文
+    var rcard = el('section', 'q');
+    rcard.appendChild(el('h2', '', '依頼文'));
+    rcard.appendChild(el('p', 'note', 'テキストを書くか、ファイルを選ぶか、どちらかで渡します。'));
+    var seg = el('div', 'seg in-kind');
+    [['text', 'テキスト'], ['file', 'ファイル']].forEach(function (k) {
+      var l = el('label');
+      var r = document.createElement('input');
+      r.type = 'radio'; r.name = 'kind'; r.value = k[0];
+      r.checked = kind === k[0];
+      r.addEventListener('change', function () { kind = k[0]; syncKind(); });
+      l.appendChild(r);
+      l.appendChild(document.createTextNode(k[1]));
+      seg.appendChild(l);
+    });
+    rcard.appendChild(seg);
+    var textBox = el('div', 'in-box');
     var req = document.createElement('textarea');
     req.style.minHeight = '120px';
+    req.placeholder = '何を詰めたいか、背景、分かっている制約など';
     req.value = data.request || '';
-    f1.appendChild(req);
-    card.appendChild(f1);
-    content.appendChild(card);
+    textBox.appendChild(req);
+    rcard.appendChild(textBox);
+    var fileBox = el('div', 'in-box');
+    fileBox.appendChild(el('p', 'note', '依頼文のファイル（作業フォルダの中から 1 つ）'));
+    var reqPick = el('div', 'in-pick');
+    var reqTree = el('div', 'in-tree');
+    var reqFiles = el('div', 'in-files');
+    reqPick.appendChild(reqTree);
+    reqPick.appendChild(reqFiles);
+    fileBox.appendChild(reqPick);
+    var reqPath = document.createElement('input');
+    reqPath.type = 'text';
+    reqPath.placeholder = '作業フォルダの外のファイルは、パスをここに書く（書くと上の選択より優先）';
+    reqPath.value = extraReq;
+    fileBox.appendChild(reqPath);
+    var reqSum = el('p', 'note');
+    fileBox.appendChild(reqSum);
+    rcard.appendChild(fileBox);
+    content.appendChild(rcard);
 
-    var pcard = el('section', 'q');
-    pcard.appendChild(el('h2', '', 'ファイルパス'));
-    var f2 = el('label', 'field', '1 行に 1 つ。例: C:/Users/.../資料.pptx');
+    // 参考資料
+    var icard = el('section', 'q');
+    icard.appendChild(el('h2', '', '参考資料'));
+    icard.appendChild(el('p', 'note',
+      '左のフォルダをクリックすると、右に資料（docx・pdf・pptx・xlsx・md・txt）が出ます。別のフォルダへ移っても、チェックは残ります。' +
+      'Shift を押しながらクリックすると、前にクリックしたファイルから範囲でまとめて選べます。'));
+    var inPick = el('div', 'in-pick');
+    var inTree = el('div', 'in-tree');
+    var inFiles = el('div', 'in-files');
+    inPick.appendChild(inTree);
+    inPick.appendChild(inFiles);
+    icard.appendChild(inPick);
     var paths = document.createElement('textarea');
-    f2.appendChild(paths);
-    pcard.appendChild(f2);
-    var f5 = el('label', 'field', '');
-    var pickFiles = document.createElement('input');
-    pickFiles.type = 'checkbox';
-    f5.appendChild(pickFiles);
-    f5.appendChild(document.createTextNode(' ダイアログで選ぶ（送信後、Claude がファイルを選ぶダイアログを開きます。複数選べます）'));
-    pcard.appendChild(f5);
-    content.appendChild(pcard);
+    paths.placeholder = '作業フォルダの外のファイルやフォルダは、パスをここに書く（1 行 1 つ）';
+    paths.value = extraPaths.join('\n');
+    icard.appendChild(paths);
+    var chosen = el('div', 'in-chosen');
+    icard.appendChild(chosen);
+    content.appendChild(icard);
 
+    // 保存先
     var scard = el('section', 'q');
     scard.appendChild(el('h2', '', '保存先（親フォルダ）'));
-    var f3 = el('label', 'field', 'SPEC を置くフォルダ。初期値は、Claude Code を動かしているフォルダ（作業フォルダ）です。変更できます。相対パスは作業フォルダから、絶対パスはそのまま使われます。空欄なら作業フォルダの直下');
-    var dest = document.createElement('input');
-    dest.type = 'text';
-    dest.value = data.dest || '';
-    f3.appendChild(dest);
-    scard.appendChild(f3);
+    scard.appendChild(el('p', 'note', 'SPEC を置くフォルダを、作業フォルダの中から 1 つ選びます。初期値は作業フォルダ自身です。'));
+    var outPick = el('div', 'in-pick one');
+    var outTree = el('div', 'in-tree');
+    outPick.appendChild(outTree);
+    scard.appendChild(outPick);
+    var outPath = document.createElement('input');
+    outPath.type = 'text';
+    outPath.placeholder = '作業フォルダの外に置くときは、パスをここに書く（書くと上の選択より優先）';
+    outPath.value = extraOut;
+    scard.appendChild(outPath);
+    var outSum = el('p', 'note');
+    scard.appendChild(outSum);
     content.appendChild(scard);
 
-    intakeGet = function () {
+    // フォルダの読み直し
+    var rf = el('section', 'q in-refresh');
+    var rfBtn = el('button', '', 'フォルダを読み直す');
+    rf.appendChild(rfBtn);
+    rf.appendChild(el('span', 'note', '作業フォルダにファイルを足したら押してください。入力した内容とチェックは、そのまま残ります。'));
+    content.insertBefore(rf, rcard);
+
+    function lines(s) {
+      return s.split(/\r?\n/).map(function (l) { return l.trim().replace(/^"(.*)"$/, '$1'); }).filter(Boolean);
+    }
+
+    // ツリー（radio: 保存先用。フォルダをクリックするとラジオも選ぶ）
+    function drawTree(box, tag, getCur, setCur, radio) {
+      var scroll = box.scrollTop;
+      box.textContent = '';
+      (function walk(n, depth) {
+        var row = el('div', 'in-node' + (getCur() === n.path ? ' cur' : ''));
+        row.tabIndex = 0;
+        row.dataset.fk = 'n:' + tag + ':' + n.path;
+        row.style.paddingLeft = (6 + depth * 14) + 'px';
+        var has = n.dirs.length > 0;
+        row.appendChild(el('span', 'in-tw', has ? (open[n.path] ? '▼' : '▶') : ''));
+        if (radio) {
+          var r = document.createElement('input');
+          r.type = 'radio'; r.name = 'out'; r.checked = getCur() === n.path; r.tabIndex = -1;
+          row.appendChild(r);
+        }
+        row.appendChild(document.createTextNode(depth === 0 ? n.name + '（作業フォルダ）' : n.name));
+        var pick = function () {
+          if (has) open[n.path] = !open[n.path];
+          setCur(n.path);
+          draw();
+        };
+        row.addEventListener('click', pick);
+        row.addEventListener('keydown', function (e) {
+          if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); pick(); }
+        });
+        box.appendChild(row);
+        if (n.truncated) {
+          var tn = el('div', 'note warn', '件数が多いため一部だけ表示しています。パス欄を使ってください。');
+          tn.style.paddingLeft = (6 + (depth + 1) * 14) + 'px';
+          box.appendChild(tn);
+        }
+        if (has && open[n.path]) n.dirs.forEach(function (c) { walk(c, depth + 1); });
+      })(root, 0);
+      box.scrollTop = scroll;
+    }
+
+    function drawFiles(box, tag, cur, multi) {
+      var n = nodes[cur];
+      var scroll = box.scrollTop;
+      box.textContent = '';
+      box.appendChild(el('div', 'in-where', n.path));
+      var fs = shown(n);
+      if (!fs.length) box.appendChild(el('div', 'note', 'このフォルダに、読める資料はありません。'));
+      if (n.truncated) box.appendChild(el('div', 'note warn', '件数が多いため一部だけ表示しています。パス欄を使ってください。'));
+      fs.forEach(function (f, idx) {
+        var full = withSep(n.path) + f;
+        var l = el('label', 'in-file');
+        var c = document.createElement('input');
+        c.type = multi ? 'checkbox' : 'radio';
+        if (!multi) c.name = 'reqfile';
+        c.checked = multi ? inSel.picked.indexOf(full) >= 0 : reqSel.file === full;
+        c.dataset.fk = 'f:' + tag + ':' + full;
+        l.appendChild(c);
+        l.appendChild(document.createTextNode(f));
+        // クリックはラベルで受ける（名前のクリックだと、ブラウザが転送するクリックから Shift が落ちるため）
+        l.addEventListener('click', function (e) {
+          e.preventDefault();
+          if (!multi) {
+            reqSel.file = reqSel.file === full ? '' : full;
+            draw();
+            return;
+          }
+          var on = inSel.picked.indexOf(full) < 0;
+          var from = idx;
+          var to = idx;
+          if (e.shiftKey && inSel.last && inSel.last.dir === n.path) {
+            from = Math.min(inSel.last.i, idx);
+            to = Math.max(inSel.last.i, idx);
+          }
+          for (var k = from; k <= to; k++) {
+            var q = withSep(n.path) + fs[k];
+            var at = inSel.picked.indexOf(q);
+            if (on && at < 0) inSel.picked.push(q);
+            if (!on && at >= 0) inSel.picked.splice(at, 1);
+          }
+          inSel.last = { dir: n.path, i: idx };
+          draw();
+        });
+        box.appendChild(l);
+      });
+      box.scrollTop = scroll;
+    }
+
+    function drawChosen() {
+      var all = inSel.picked.concat(lines(paths.value));
+      chosen.textContent = '';
+      chosen.appendChild(el('b', '', all.length ? '選択中（' + all.length + ' 件）' : '選択中'));
+      if (!all.length) chosen.appendChild(document.createTextNode(' なし'));
+      all.forEach(function (p) {
+        var row = el('div', 'in-it');
+        row.appendChild(el('span', 'in-p', p));
+        if (inSel.picked.indexOf(p) >= 0) {
+          var b = el('button', 'clear', '外す');
+          b.addEventListener('click', function () {
+            inSel.picked.splice(inSel.picked.indexOf(p), 1);
+            draw();
+          });
+          row.appendChild(b);
+        } else {
+          row.appendChild(el('span', 'in-tag', 'パス欄'));
+        }
+        chosen.appendChild(row);
+      });
+    }
+
+    function current() {
       return {
+        kind: kind,
         request: req.value.trim(),
-        dest: dest.value.trim(),
-        paths: paths.value.split(/\r?\n/).map(function (l) { return l.trim(); }).filter(Boolean)
-          .concat(pickFiles.checked ? ['ダイアログで選ぶ'] : [])
+        requestFile: lines(reqPath.value)[0] || reqSel.file,
+        paths: inSel.picked.concat(lines(paths.value)),
+        dest: lines(outPath.value)[0] || outSel.sel
       };
-    };
+    }
+    function syncKind() {
+      textBox.style.display = kind === 'text' ? '' : 'none';
+      fileBox.style.display = kind === 'file' ? '' : 'none';
+    }
+    function draw() {
+      var ae = document.activeElement;
+      var fk = ae && ae.dataset ? ae.dataset.fk : '';
+      drawTree(reqTree, 'req', function () { return reqSel.cur; }, function (p) { reqSel.cur = p; }, false);
+      drawFiles(reqFiles, 'req', reqSel.cur, false);
+      drawTree(inTree, 'in', function () { return inSel.cur; }, function (p) { inSel.cur = p; }, false);
+      drawFiles(inFiles, 'in', inSel.cur, true);
+      drawTree(outTree, 'out', function () { return outSel.sel; }, function (p) { outSel.sel = p; }, true);
+      drawChosen();
+      var it = current();
+      reqSum.textContent = '依頼文のファイル: ' + (it.requestFile || 'なし');
+      outSum.textContent = '保存先: ' + it.dest;
+      if (fk) {
+        var again = content.querySelector('[data-fk="' + fk.replace(/(["\\])/g, '\\$1') + '"]');
+        if (again) again.focus();
+      }
+    }
+    paths.addEventListener('input', drawChosen);
+    [reqPath, outPath].forEach(function (i) { i.addEventListener('input', draw); });
+    rfBtn.addEventListener('click', function () {
+      window.__answersMd = intakeMarkdown(current(), true);
+      window.__submitted = true;
+      document.getElementById('submit').disabled = true;
+      rfBtn.disabled = true;
+      setStatus('読み直しを依頼しました。Claude が作り直して、開き直します。このページでは、もう送信できません。', 'ok');
+    });
+    syncKind();
+    draw();
+
+    intakeGet = current;
   }
 
   if (data.mode === 'intake') {
@@ -581,13 +863,11 @@ kbd { font: 700 11.5px/1 var(--mono); padding: 2px 6px; border: 1px solid var(--
       (data.mode === 'intake' ? 'intake: 1' : (data.mode === 'final' ? 'final: ' : 'round: ') + data.round) + '\n---\n';
     if (data.mode === 'intake') {
       var it = intakeGet();
-      if (!it.request && !it.paths.length) {
-        return { error: '依頼文かファイルパスのどちらかを入力してください。' };
+      var hasReq = it.kind === 'file' ? !!it.requestFile : !!it.request;
+      if (!hasReq && !it.paths.length) {
+        return { error: '依頼文か参考資料のどちらかを入力してください。' };
       }
-      var md = head + '## 依頼文\n' + it.request + '\n\n## ファイルパス\n';
-      it.paths.forEach(function (pth) { md += '- ' + pth + '\n'; });
-      md += '\n## 保存先\n' + it.dest.replace(/\s*\r?\n\s*/g, ' ') + '\n';
-      return { md: md };
+      return { md: intakeMarkdown(it, false) };
     }
     if (data.mode === 'final') {
       var a = approveGet();

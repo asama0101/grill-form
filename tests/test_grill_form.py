@@ -175,7 +175,6 @@ def render_intake(monkeypatch, tmp_path, capsys) -> str:
         "type = 'file'",
         "grill-in-",
         "downloadPicked",
-        ".files",
         "ダウンロード",
     ],
 )
@@ -183,11 +182,44 @@ def test_入力フォームにファイル選択欄の名残がない(gone, tmp_
     assert gone not in render_intake(monkeypatch, tmp_path, capsys)
 
 
-def test_入力フォームの回答はファイルパス節だけを持つ(tmp_path, monkeypatch, capsys):
+def test_入力フォームの回答は参考資料節と更新節を持つ(tmp_path, monkeypatch, capsys):
     html = render_intake(monkeypatch, tmp_path, capsys)
-    assert "## ファイルパス" in html
-    assert "\\n\\n## ファイル\\n" not in html
-    assert "依頼文かファイルパスのどちらかを入力してください。" in html
+    assert "## 参考資料" in html
+    assert "## 更新" in html
+    assert "## ファイルパス" not in html
+    assert "依頼文か参考資料のどちらかを入力してください。" in html
+
+
+@pytest.mark.parametrize(
+    "present",
+    [
+        "フォルダを読み直す",
+        "r.name = 'kind'",
+        "依頼文のファイル",
+        "Shift",
+    ],
+)
+def test_入力フォームに新しい操作の部品がある(present, tmp_path, monkeypatch, capsys):
+    assert present in render_intake(monkeypatch, tmp_path, capsys)
+
+
+@pytest.mark.parametrize(
+    "gone",
+    ["ダイアログで選ぶ", "pick-file", "ファイルパス（1 行 1 つ）"],
+)
+def test_入力フォームに旧いファイルパス欄の名残がない(
+    gone, tmp_path, monkeypatch, capsys
+):
+    assert gone not in render_intake(monkeypatch, tmp_path, capsys)
+
+
+def test_テンプレートはinnerHTMLを使わない():
+    text = (
+        ROOT / "plugins" / "grill-form" / "scripts" / "grill_form_template.html"
+    ).read_text(encoding="utf-8")
+    lines = [ln for ln in text.splitlines() if "innerHTML" in ln]
+    assert len(lines) == 1
+    assert lines[0].strip().startswith("//")  # 「使わない」という注釈の 1 行だけ
 
 
 def test_入力フォームに保存先欄があり回答の節を持つ(tmp_path, monkeypatch, capsys):
@@ -220,44 +252,193 @@ def test_入力フォームの保存先にダイアログで選ぶチェック�
     assert "フォルダ選択ダイアログ" not in html
 
 
-def test_入力フォームのファイルパスにもダイアログで選ぶチェックがある(
-    tmp_path, monkeypatch, capsys
-):
-    html = render_intake(monkeypatch, tmp_path, capsys)
-    assert "Claude がファイルを選ぶダイアログを開きます" in html
+def test_pick_fileサブコマンドは廃止されている(monkeypatch):
+    with pytest.raises(SystemExit):
+        run(monkeypatch, "pick-file")
 
 
-def test_pick_fileは選んだファイルを1行ずつ出力する(tmp_path, monkeypatch, capsys):
-    a, b = tmp_path / "a.pdf", tmp_path / "b c.xlsx"
-    monkeypatch.setattr(grill_form, "ask_files", lambda initial: (str(a), str(b)))
-    assert run(monkeypatch, "pick-file") == 0
-    assert capsys.readouterr().out.splitlines() == [str(a), str(b)]
-
-
-def test_pick_fileは取り消しで終了コード1になり何も出力しない(monkeypatch, capsys):
-    monkeypatch.setattr(grill_form, "ask_files", lambda initial: ())
-    assert run(monkeypatch, "pick-file") == 1
-    captured = capsys.readouterr()
-    assert captured.out == ""
-    assert "取り消" in captured.err
-
-
-def test_pick_fileはダイアログが使えないとき終了コード3になる(monkeypatch, capsys):
-    def unavailable(initial):
-        raise RuntimeError("no display")
-
-    monkeypatch.setattr(grill_form, "ask_files", unavailable)
-    assert run(monkeypatch, "pick-file") == 3
-    assert "ダイアログ" in capsys.readouterr().err
-
-
-def test_pick_fileは作業フォルダを初期位置にする(workdir, monkeypatch):
-    seen = []
-    monkeypatch.setattr(
-        grill_form, "ask_files", lambda initial: seen.append(initial) or ("x",)
+def intake_data(html: str) -> dict:
+    start = html.index('<script id="data" type="application/json">') + len(
+        '<script id="data" type="application/json">'
     )
-    run(monkeypatch, "pick-file")
-    assert seen == [workdir]
+    return json.loads(html[start : html.index("</script>", start)])
+
+
+def test_parse_intake_answersはテキストの依頼文を読む():
+    md = (
+        "---\nsession: s\nintake: 1\n---\n"
+        "## 依頼文\n- 種別: テキスト\n計画を詰めたい\n2 行目\n\n"
+        "## 参考資料\n- C:\\work dir\\資料\\a.pdf\n- D:\\外\\b.xlsx\n\n"
+        "## 保存先\nC:\\work dir\n"
+    )
+    assert grill_form.parse_intake_answers(md) == {
+        "refresh": False,
+        "kind": "text",
+        "request": "計画を詰めたい\n2 行目",
+        "request_file": "",
+        "paths": ["C:\\work dir\\資料\\a.pdf", "D:\\外\\b.xlsx"],
+        "dest": "C:\\work dir",
+    }
+
+
+def test_parse_intake_answersはファイルの依頼文を引用符を外して読む():
+    md = (
+        "---\nsession: s\nintake: 1\n---\n"
+        '## 依頼文\n- 種別: ファイル\n"C:\\work\\依頼書.docx"\n\n'
+        "## 参考資料\n\n## 保存先\nC:\\work\n"
+    )
+    got = grill_form.parse_intake_answers(md)
+    assert got["kind"] == "file"
+    assert got["request_file"] == "C:\\work\\依頼書.docx"
+    assert got["request"] == ""
+    assert got["paths"] == []
+
+
+def test_parse_intake_answersは更新の印を読む():
+    md = (
+        "---\nsession: s\nintake: 1\n---\n"
+        "## 更新\n- 読み直し: はい\n\n## 保存先\nC:\\w\n"
+    )
+    got = grill_form.parse_intake_answers(md)
+    assert got["refresh"] is True
+    assert got["dest"] == "C:\\w"
+
+
+def test_parse_intake_answersは節が欠けても既定値を返す():
+    assert grill_form.parse_intake_answers("---\nintake: 1\n---\n") == {
+        "refresh": False,
+        "kind": "text",
+        "request": "",
+        "request_file": "",
+        "paths": [],
+        "dest": "",
+    }
+
+
+def test_render_intakeは作業フォルダのツリーを埋め込む(
+    workdir, tmp_path, monkeypatch, capsys
+):
+    (workdir / "資料").mkdir()
+    (workdir / "資料" / "a.pdf").write_text("x", encoding="utf-8")
+    data = intake_data(render_intake(monkeypatch, tmp_path, capsys))
+    assert data["cwd"] == str(workdir)
+    assert data["tree"]["name"] == "work dir 作業"
+    assert data["tree"]["dirs"][0]["name"] == "資料"
+    assert data["tree"]["dirs"][0]["files"] == ["a.pdf"]
+    assert data["kind"] == "text"
+
+
+def test_render_intakeは回答から入力を復元する(workdir, tmp_path, monkeypatch, capsys):
+    answers = tmp_path / "intake.answers.md"
+    answers.write_text(
+        "---\nsession: s\nintake: 1\n---\n## 更新\n- 読み直し: はい\n\n"
+        "## 依頼文\n- 種別: ファイル\nD:\\外\\依頼書.docx\n\n"
+        "## 参考資料\n- D:\\外\\x.pdf\n\n## 保存先\nD:\\外\\out\n",
+        encoding="utf-8",
+    )
+    run(
+        monkeypatch,
+        "render",
+        "--session-dir",
+        str(tmp_path / "s"),
+        "--intake",
+        "--answers",
+        str(answers),
+    )
+    html = Path(capsys.readouterr().out.strip()).read_text(encoding="utf-8")
+    data = intake_data(html)
+    assert data["kind"] == "file"
+    assert data["request_file"] == "D:\\外\\依頼書.docx"
+    assert data["paths"] == ["D:\\外\\x.pdf"]
+    assert data["dest"] == "D:\\外\\out"
+
+
+def test_parse_intake_answersは保留の依頼文から他方の入力を復元する():
+    md = (
+        "---\nintake: 1\n---\n## 更新\n- 読み直し: はい\n\n"
+        "## 依頼文\n- 種別: ファイル\nC:\\w\\依頼書.docx\n\n"
+        "## 保留の依頼文\n- 種別: テキスト\n書きかけの依頼文\n2 行目\n\n"
+        "## 保存先\nC:\\w\n"
+    )
+    got = grill_form.parse_intake_answers(md)
+    assert got["kind"] == "file"
+    assert got["request_file"] == "C:\\w\\依頼書.docx"
+    assert got["request"] == "書きかけの依頼文\n2 行目"
+
+
+def test_parse_intake_answersは保留のファイルからも復元する():
+    md = (
+        "---\nintake: 1\n---\n## 依頼文\n- 種別: テキスト\n本文\n\n"
+        "## 保留の依頼文\n- 種別: ファイル\nC:\\w\\x.docx\n"
+    )
+    got = grill_form.parse_intake_answers(md)
+    assert got["kind"] == "text"
+    assert got["request"] == "本文"
+    assert got["request_file"] == "C:\\w\\x.docx"
+
+
+def test_parse_intake_answersは依頼文の中の見出し風の行を本文として読む():
+    md = (
+        "---\nintake: 1\n---\n## 依頼文\n- 種別: テキスト\n"
+        "前置き\n## 背景\n詳細\n\n## 保存先\nC:\\w\n"
+    )
+    got = grill_form.parse_intake_answers(md)
+    assert got["request"] == "前置き\n## 背景\n詳細"
+    assert got["dest"] == "C:\\w"
+
+
+def test_render_intakeは空の回答で_inputの値を消さない(
+    workdir, tmp_path, monkeypatch, capsys
+):
+    answers = tmp_path / "a.md"
+    answers.write_text(
+        "---\nintake: 1\n---\n## 依頼文\n- 種別: テキスト\n\n## 保存先\n",
+        encoding="utf-8",
+    )
+    j = tmp_path / "in.json"
+    j.write_text(
+        json.dumps({"request": "初期の依頼文", "dest": "D:\\out"}),
+        encoding="utf-8",
+    )
+    run(
+        monkeypatch,
+        "render",
+        "--session-dir",
+        str(tmp_path / "s"),
+        "--intake",
+        "--input",
+        str(j),
+        "--answers",
+        str(answers),
+    )
+    html = Path(capsys.readouterr().out.strip()).read_text(encoding="utf-8")
+    data = intake_data(html)
+    assert data["request"] == "初期の依頼文"
+    assert data["dest"] == "D:\\out"
+    assert "refresh" not in data
+
+
+def test_テンプレートはゼロ幅スペースで依頼文を加工しない():
+    text = (
+        ROOT / "plugins" / "grill-form" / "scripts" / "grill_form_template.html"
+    ).read_text(encoding="utf-8")
+    assert "u200b" not in text.lower()
+    assert "​" not in text
+
+
+def test_入力フォームの描画はintroを表示する():
+    text = (
+        ROOT / "plugins" / "grill-form" / "scripts" / "grill_form_template.html"
+    ).read_text(encoding="utf-8")
+    body = text[text.index("function renderIntake") :]
+    body = body[: body.index("function lines")]
+    assert "data.intro" in body
+
+
+def test_埋め込みはscript終了タグを無害化する():
+    out = grill_form.embed({"tree": {"name": "a</script>b"}})
+    assert "</script>" not in out
+    assert "<\\/script>" in out
 
 
 def render_round(monkeypatch, tmp_path, capsys) -> str:
@@ -309,3 +490,14 @@ def test_spec_pathは親が既存のファイルなら終了コード2で止ま�
 def test_spec_pathは存在しない親ならそのままパスを返す(workdir, monkeypatch, capsys):
     assert run(monkeypatch, "spec-path", "--theme", "t", "--parent", "new") == 0
     assert Path(capsys.readouterr().out.strip()).parent == workdir / "new"
+
+
+def test_ツリーの切り捨て通知はフォルダだけに限らない文面にする():
+    text = (
+        ROOT / "plugins" / "grill-form" / "scripts" / "grill_form_template.html"
+    ).read_text(encoding="utf-8")
+    assert "一部のフォルダだけ" not in text
+    assert (
+        text.count("件数が多いため一部だけ表示しています。パス欄を使ってください。")
+        == 2
+    )

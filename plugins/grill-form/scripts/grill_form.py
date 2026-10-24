@@ -12,20 +12,19 @@
                               （このスクリプトのカレントフォルダ）。
                               相対パスは作業フォルダから解決する。
                               同名のファイルがあれば末尾に連番を付ける
-  pick-file                   OS のファイルを選ぶダイアログ（複数選択可）を開き、選んだ
-                              ファイルのパスを1行ずつ出力する（初期位置は作業フォルダ）。
-                              取り消しは終了コード 1、ダイアログを開けない
-                              （tkinter がない・画面がない）ときは 3
   render --session-dir D --round N [--final] --input J.json
                               質問 JSON から round-N.html を生成し、パスを出力する。
                               --final のときは N を最終確認の版番号とし、
                               final-N.html を生成する
                               （修正のたびに版を上げ、前の版を上書きしない）
-  render --session-dir D --intake [--input J.json]
-                              入力フォーム（依頼文・ファイルパス）intake.html を
-                              生成する。J.json は {"title","intro","request","dest"} で
-                              省略可（request は依頼文欄の初期入力、dest は
-                              保存先欄の初期値で、省略すると作業フォルダ）
+  render --session-dir D --intake [--input J.json] [--answers A.md]
+                              入力フォーム intake.html を生成する。作業フォルダ
+                              （カレントフォルダ）の一覧を調べて埋め込む。
+                              J.json は {"title","intro","request","dest"} で省略可
+                              （request は依頼文欄の初期入力、dest は保存先の初期値で、
+                              省略すると作業フォルダ）。A.md は入力フォームの回答で、
+                              あれば依頼文・参考資料・保存先をそこから復元する
+                              （「フォルダを読み直す」の作り直し用。J.json より優先）
   cleanup --session-dir D --spec S [--yes]
                               一時セッション D を削除対象として表示する。
                               --yes を付けたときだけ D を削除する。
@@ -52,10 +51,13 @@ import tempfile
 import time
 from pathlib import Path
 
+import folder_scan
+
 __version__ = "1.0.0"
 SPEC_PREFIX = "SPEC"
 TEMP_ROOT_NAME = "grill-form"
 KEEP_DAYS = 3
+INTAKE_SECTIONS = ("更新", "依頼文", "保留の依頼文", "参考資料", "保存先")
 TEMPLATE = Path(__file__).with_name("grill_form_template.html")
 INVALID = re.compile(r'[\\/:*?"<>|\s]+')
 
@@ -114,44 +116,47 @@ def cmd_spec_path(args) -> int:
     return 0
 
 
-def run_dialog(pick):
-    # OS の選択ダイアログ（tkinter）を最前面で開き、pick(filedialog, root) の結果を返す
-    import tkinter
-    from tkinter import filedialog
-
-    try:
-        root = tkinter.Tk()
-    except tkinter.TclError as e:
-        raise RuntimeError(str(e)) from e
-    root.withdraw()
-    root.attributes("-topmost", True)
-    try:
-        return pick(filedialog, root)
-    finally:
-        root.destroy()
-
-
-def ask_files(initial: Path) -> tuple:
-    # 複数選択できる。取り消しは空のタプルを返す
-    return tuple(
-        run_dialog(
-            lambda fd, root: fd.askopenfilenames(initialdir=str(initial), parent=root)
-        )
+def parse_intake_answers(md: str) -> dict:
+    # 入力フォームの回答 Markdown を、フォームの状態に戻せる辞書にする
+    state: dict = {
+        "refresh": False,
+        "kind": "text",
+        "request": "",
+        "request_file": "",
+        "paths": [],
+        "dest": "",
+    }
+    sections: dict[str, list[str]] = {}
+    name = None
+    for line in md.splitlines():  # 最初の節より前（frontmatter）は読み飛ばす
+        # 既知の節名だけを区切りにする（依頼文の本文に「## 背景」などがあっても読める）
+        if line.startswith("## ") and line[3:].strip() in INTAKE_SECTIONS:
+            name = line[3:].strip()
+            sections[name] = []
+        elif name is not None:
+            sections[name].append(line)
+    state["refresh"] = "更新" in sections
+    # 「保留の依頼文」は、選ばれていない側（読み直しで消えないよう退避した入力）
+    for key in ("保留の依頼文", "依頼文"):
+        body = sections.get(key, [])
+        if body and body[0].strip() == "- 種別: ファイル":
+            if key == "依頼文":
+                state["kind"] = "file"
+            state["request_file"] = next(
+                (ln.strip().strip('"').strip() for ln in body[1:] if ln.strip()), ""
+            )
+        elif body:
+            rest = body[1:] if body[0].startswith("- 種別:") else body
+            state["request"] = "\n".join(rest).strip()
+    state["paths"] = [
+        ln[2:].strip().strip('"').strip()
+        for ln in sections.get("参考資料", [])
+        if ln.startswith("- ") and ln[2:].strip()
+    ]
+    state["dest"] = next(
+        (ln.strip() for ln in sections.get("保存先", []) if ln.strip()), ""
     )
-
-
-def cmd_pick_file(args) -> int:
-    try:
-        chosen = ask_files(Path.cwd())
-    except (ImportError, RuntimeError) as e:
-        print(f"ファイルを選ぶダイアログを開けません: {e}", file=sys.stderr)
-        return 3
-    if not chosen:
-        print("ファイルの選択が取り消されました。", file=sys.stderr)
-        return 1
-    for f in chosen:
-        print(Path(f))
-    return 0
+    return state
 
 
 def embed(data: dict) -> str:
@@ -173,10 +178,18 @@ def cmd_render(args) -> int:
             if args.input
             else {}
         )
+        if args.answers:
+            state = parse_intake_answers(Path(args.answers).read_text(encoding="utf-8"))
+            state.pop("refresh")
+            # 空の欄は、--input の初期値を消さない
+            payload.update({k: v for k, v in state.items() if k == "kind" or v})
         payload["mode"] = "intake"
         payload["round"] = 0
-        payload.setdefault("dest", str(Path.cwd()))
-        payload.setdefault("title", "入力（依頼文・ファイルパス）")
+        payload["cwd"] = str(Path.cwd())
+        payload["tree"] = folder_scan.scan(Path.cwd())
+        payload.setdefault("kind", "text")
+        payload["dest"] = payload.get("dest") or str(Path.cwd())
+        payload.setdefault("title", "入力（依頼文・参考資料・保存先）")
         out = d / "intake.html"
     else:
         if args.round is None or not args.input:
@@ -254,9 +267,6 @@ def main() -> int:
     )
     p.set_defaults(fn=cmd_spec_path)
 
-    p = sub.add_parser("pick-file")
-    p.set_defaults(fn=cmd_pick_file)
-
     p = sub.add_parser("render")
     p.add_argument("--session-dir", required=True)
     p.add_argument("--round", type=int)
@@ -265,6 +275,9 @@ def main() -> int:
         "--intake", action="store_true", help="入力フォーム intake.html を生成する"
     )
     p.add_argument("--input")
+    p.add_argument(
+        "--answers", help="入力フォームの回答（intake.answers.md）。状態を復元する"
+    )
     p.set_defaults(fn=cmd_render)
 
     p = sub.add_parser("cleanup")
