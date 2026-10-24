@@ -1,6 +1,6 @@
 # 開発者向けメモ
 
-grill-form の仕組み、テスト、設計書の置き場所です。使い方は [README.md](../README.md) を見てください。
+grill-form の仕組みとテストです。使い方は [README.md](../README.md) を見てください。
 
 ## ファイル構成
 
@@ -10,8 +10,6 @@ grill-form の仕組み、テスト、設計書の置き場所です。使い方
 | `grill_form.py` | 補助スクリプト。サブコマンドは下の表 |
 | `grill_form_template.html` | フォームのテンプレート（単一 HTML、外部リソースなし、`innerHTML` は使わない） |
 | `tests/` | pytest のテスト |
-| `docs/superpowers/specs/` | 設計書 |
-| `docs/superpowers/plans/` | 実装計画 |
 | `THIRD_PARTY_NOTICES.md` | 取り込んだルールの出典とライセンス |
 
 ### `grill_form.py` のサブコマンド
@@ -48,7 +46,3 @@ python -m venv <一時フォルダ>/grill-form-venv   # プロジェクトの外
 
 - フォームの動き（キー操作、次の質問へ移る動き）は、自動テストの対象外です。ブラウザで目視して確かめてください。
 - 選択ダイアログの表示も、自動テストの対象外です。`python grill_form.py pick-dir` と `pick-file` を実行して確かめてください。
-
-## 設計書
-
-保存先と残すものの見直しの設計は、[docs/superpowers/specs/2026-10-24-output-layout-design.md](superpowers/specs/2026-10-24-output-layout-design.md) にあります。実装計画は [docs/superpowers/plans/2026-10-24-output-layout.md](superpowers/plans/2026-10-24-output-layout.md) です。
