@@ -12,13 +12,10 @@
                               （このスクリプトのカレントフォルダ）。
                               相対パスは作業フォルダから解決する。
                               同名のファイルがあれば末尾に連番を付ける
-  pick-dir                    OS のフォルダ選択ダイアログを開き、選んだフォルダの
-                              パスを出力する（初期位置は作業フォルダ）。
-                              取り消しは終了コード 1、ダイアログを開けない
-                              （tkinter がない・画面がない）ときは 3
   pick-file                   OS のファイルを選ぶダイアログ（複数選択可）を開き、選んだ
                               ファイルのパスを1行ずつ出力する（初期位置は作業フォルダ）。
-                              終了コードは pick-dir と同じ
+                              取り消しは終了コード 1、ダイアログを開けない
+                              （tkinter がない・画面がない）ときは 3
   render --session-dir D --round N [--final] --input J.json
                               質問 JSON から round-N.html を生成し、パスを出力する。
                               --final のときは N を最終確認の版番号とし、
@@ -26,8 +23,9 @@
                               （修正のたびに版を上げ、前の版を上書きしない）
   render --session-dir D --intake [--input J.json]
                               入力フォーム（依頼文・ファイルパス）intake.html を
-                              生成する。J.json は {"title","intro","request"} で
-                              省略可（request は依頼文欄の初期入力）
+                              生成する。J.json は {"title","intro","request","dest"} で
+                              省略可（request は依頼文欄の初期入力、dest は
+                              保存先欄の初期値で、省略すると作業フォルダ）
   cleanup --session-dir D --spec S [--yes]
                               一時セッション D を削除対象として表示する。
                               --yes を付けたときだけ D を削除する。
@@ -133,13 +131,6 @@ def run_dialog(pick):
         root.destroy()
 
 
-def ask_directory(initial: Path) -> str:
-    # 取り消しは空文字を返す
-    return run_dialog(
-        lambda fd, root: fd.askdirectory(initialdir=str(initial), parent=root)
-    )
-
-
 def ask_files(initial: Path) -> tuple:
     # 複数選択できる。取り消しは空のタプルを返す
     return tuple(
@@ -147,19 +138,6 @@ def ask_files(initial: Path) -> tuple:
             lambda fd, root: fd.askopenfilenames(initialdir=str(initial), parent=root)
         )
     )
-
-
-def cmd_pick_dir(args) -> int:
-    try:
-        chosen = ask_directory(Path.cwd())
-    except (ImportError, RuntimeError) as e:
-        print(f"フォルダ選択のダイアログを開けません: {e}", file=sys.stderr)
-        return 3
-    if not chosen:
-        print("フォルダの選択が取り消されました。", file=sys.stderr)
-        return 1
-    print(Path(chosen))
-    return 0
 
 
 def cmd_pick_file(args) -> int:
@@ -197,6 +175,7 @@ def cmd_render(args) -> int:
         )
         payload["mode"] = "intake"
         payload["round"] = 0
+        payload.setdefault("dest", str(Path.cwd()))
         payload.setdefault("title", "入力（依頼文・ファイルパス）")
         out = d / "intake.html"
     else:
@@ -274,9 +253,6 @@ def main() -> int:
         help="SPEC を保存する親フォルダ（既定: 作業フォルダ）",
     )
     p.set_defaults(fn=cmd_spec_path)
-
-    p = sub.add_parser("pick-dir")
-    p.set_defaults(fn=cmd_pick_dir)
 
     p = sub.add_parser("pick-file")
     p.set_defaults(fn=cmd_pick_file)

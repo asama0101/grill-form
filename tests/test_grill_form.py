@@ -1,6 +1,7 @@
 """grill_form.py のパス決定・cleanup・入力フォームを検査する。"""
 
 import datetime
+import json
 import sys
 import tempfile
 from pathlib import Path
@@ -195,46 +196,28 @@ def test_入力フォームに保存先欄があり回答の節を持つ(tmp_pat
     assert "\\n## 保存先\\n" in html
 
 
-def test_入力フォームの保存先にダイアログで選ぶチェックがある(
+def test_入力フォームの保存先は作業フォルダを初期値にする(
+    workdir, tmp_path, monkeypatch, capsys
+):
+    html = render_intake(monkeypatch, tmp_path, capsys)
+    start = html.index('<script id="data" type="application/json">') + len(
+        '<script id="data" type="application/json">'
+    )
+    data = json.loads(html[start : html.index("</script>", start)])
+    assert data["dest"] == str(workdir)
+
+
+def test_入力フォームにフォルダを選ぶボタンはない(tmp_path, monkeypatch, capsys):
+    html = render_intake(monkeypatch, tmp_path, capsys)
+    assert "フォルダを選ぶ" not in html
+    assert "showDirectoryPicker" not in html
+
+
+def test_入力フォームの保存先にダイアログで選ぶチェックはない(
     tmp_path, monkeypatch, capsys
 ):
     html = render_intake(monkeypatch, tmp_path, capsys)
-    assert "ダイアログで選ぶ" in html
-    assert "Claude がフォルダ選択ダイアログを開きます" in html
-
-
-def test_pick_dirは選んだフォルダのパスを出力する(tmp_path, monkeypatch, capsys):
-    monkeypatch.setattr(grill_form, "ask_directory", lambda initial: str(tmp_path))
-    assert run(monkeypatch, "pick-dir") == 0
-    assert capsys.readouterr().out.strip() == str(tmp_path)
-
-
-def test_pick_dirは取り消しで終了コード1になり何も出力しない(monkeypatch, capsys):
-    monkeypatch.setattr(grill_form, "ask_directory", lambda initial: "")
-    assert run(monkeypatch, "pick-dir") == 1
-    captured = capsys.readouterr()
-    assert captured.out == ""
-    assert "取り消" in captured.err
-
-
-def test_pick_dirはダイアログが使えないとき終了コード3になる(monkeypatch, capsys):
-    def unavailable(initial):
-        raise ImportError("No module named 'tkinter'")
-
-    monkeypatch.setattr(grill_form, "ask_directory", unavailable)
-    assert run(monkeypatch, "pick-dir") == 3
-    assert "ダイアログ" in capsys.readouterr().err
-
-
-def test_pick_dirは作業フォルダを初期位置にする(workdir, monkeypatch, capsys):
-    seen = []
-    monkeypatch.setattr(
-        grill_form,
-        "ask_directory",
-        lambda initial: seen.append(initial) or str(initial),
-    )
-    run(monkeypatch, "pick-dir")
-    assert seen == [workdir]
+    assert "フォルダ選択ダイアログ" not in html
 
 
 def test_入力フォームのファイルパスにもダイアログで選ぶチェックがある(
@@ -275,14 +258,6 @@ def test_pick_fileは作業フォルダを初期位置にする(workdir, monkeyp
     )
     run(monkeypatch, "pick-file")
     assert seen == [workdir]
-
-
-def test_入力フォームの保存先にフォルダを選ぶボタンがある(
-    tmp_path, monkeypatch, capsys
-):
-    html = render_intake(monkeypatch, tmp_path, capsys)
-    assert "showDirectoryPicker" in html
-    assert "作業フォルダ直下のフォルダだけ" in html
 
 
 def render_round(monkeypatch, tmp_path, capsys) -> str:

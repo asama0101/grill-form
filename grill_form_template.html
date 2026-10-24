@@ -470,38 +470,18 @@ kbd { font: 700 11.5px/1 var(--mono); padding: 2px 6px; border: 1px solid var(--
 
     var scard = el('section', 'q');
     scard.appendChild(el('h2', '', '保存先（親フォルダ）'));
-    var f3 = el('label', 'field', 'SPEC を置くフォルダ。空欄なら、Claude Code を動かしているフォルダ（作業フォルダ）の直下。相対パスは作業フォルダから、絶対パスはそのまま使われます');
+    var f3 = el('label', 'field', 'SPEC を置くフォルダ。初期値は、Claude Code を動かしているフォルダ（作業フォルダ）です。変更できます。相対パスは作業フォルダから、絶対パスはそのまま使われます。空欄なら作業フォルダの直下');
     var dest = document.createElement('input');
     dest.type = 'text';
+    dest.value = data.dest || '';
     f3.appendChild(dest);
     scard.appendChild(f3);
-    if (window.showDirectoryPicker) {
-      // ブラウザはフォルダ名しか返さないので、選べるのは作業フォルダ直下のフォルダだけ
-      var pickBtn = el('button', '', 'フォルダを選ぶ…');
-      pickBtn.type = 'button';
-      pickBtn.addEventListener('click', function () {
-        window.showDirectoryPicker({ mode: 'read' }).then(function (h) {
-          dest.value = h.name;
-        }, function (e) {
-          if (e && e.name !== 'AbortError') setStatus('フォルダを選べませんでした: ' + e.message, 'warn');
-        });
-      });
-      scard.appendChild(pickBtn);
-      scard.appendChild(el('div', 'field', '「フォルダを選ぶ…」で選べるのは作業フォルダ直下のフォルダだけです（フォルダ名だけが入ります）。それ以外の場所は、パスを書くか、下の「ダイアログで選ぶ」を使ってください。'));
-    }
-    var f4 = el('label', 'field', '');
-    var pickDlg = document.createElement('input');
-    pickDlg.type = 'checkbox';
-    f4.appendChild(pickDlg);
-    f4.appendChild(document.createTextNode(' ダイアログで選ぶ（送信後、Claude がフォルダ選択ダイアログを開きます）'));
-    pickDlg.addEventListener('change', function () { dest.disabled = pickDlg.checked; });
-    scard.appendChild(f4);
     content.appendChild(scard);
 
     intakeGet = function () {
       return {
         request: req.value.trim(),
-        dest: pickDlg.checked ? 'ダイアログで選ぶ' : dest.value.trim(),
+        dest: dest.value.trim(),
         paths: paths.value.split(/\r?\n/).map(function (l) { return l.trim(); }).filter(Boolean)
           .concat(pickFiles.checked ? ['ダイアログで選ぶ'] : [])
       };

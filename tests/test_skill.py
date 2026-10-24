@@ -100,9 +100,8 @@ def test_SKILLは保存先を入力フォームで受け取りRound0は3点の�
     assert "次の4点を" not in text
 
 
-def test_SKILLにダイアログで選ぶ手順がある(text):
-    assert "pick-dir" in text
-    assert "ダイアログで選ぶ" in text
+def test_SKILLに保存先をダイアログで選ぶ手順はない(text):
+    assert "pick-dir" not in text
 
 
 def test_SKILLにファイルをダイアログで選ぶ手順がある(text):
