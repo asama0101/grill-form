@@ -35,6 +35,24 @@ Claude Code で実行します。
 
 - 更新は `/plugin` の画面から行います。反映には Claude Code の再起動が必要です。
 
+#### ローカルにコピーして入れる（GitHub を使わない場合）
+
+リポジトリを手元に置き、そのフォルダをマーケットプレイスとして追加します。
+
+```bash
+git clone https://github.com/asama0101/grill-form.git <任意のフォルダ>/grill-form
+```
+
+Claude Code で、clone したフォルダのパスを指定します。手順 1 の代わりに、これを実行します。
+
+```
+/plugin marketplace add <任意のフォルダ>/grill-form
+/plugin install grill-form@grill-form
+```
+
+- 更新するときは、clone したフォルダで `git pull` し、`/plugin` の画面でマーケットプレイスを更新します。
+- 入れずに一時的に試すだけなら、clone したフォルダで `claude --plugin-dir ./plugins/grill-form` と起動します。
+
 ### 3. Playwright MCP を登録する
 
 ```bash

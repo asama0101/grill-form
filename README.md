@@ -17,6 +17,8 @@ Claude Code で実行します。詳しい前提条件と使い方は、[プラ�
 /plugin install grill-form@grill-form
 ```
 
+GitHub を使わず、ローカルにコピーして入れる方法は、[プラグインの README](plugins/grill-form/README.md) にあります。
+
 ## 開発者向け
 
 仕組みとテストは [docs/development.md](docs/development.md) にあります。ローカルで試すときは、リポジトリの直下で次のように起動します。
