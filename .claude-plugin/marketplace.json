@@ -1,7 +1,7 @@
 {
   "name": "grill-form",
   "description": "grill-form プラグインの配布用マーケットプレイス。",
-  "owner": { "name": "asama0101" },
+  "owner": { "name": "grill-form contributors" },
   "plugins": [
     {
       "name": "grill-form",

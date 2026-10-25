@@ -2,7 +2,7 @@
   "name": "grill-form",
   "version": "1.0.0",
   "description": "計画や設計を、ブラウザのフォームで答えながら詰めて、SPEC にまとめる。Windows 11 で動作確認（macOS・Linux は未検証）。",
-  "author": { "name": "asama0101" },
+  "author": { "name": "grill-form contributors" },
   "license": "MIT",
   "repository": "https://github.com/asama0101/grill-form",
   "keywords": ["grilling", "spec", "form", "requirements"]
