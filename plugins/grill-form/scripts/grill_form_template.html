@@ -15,6 +15,12 @@
   :root { --bg: #11151b; --panel: #1a1f27; --text: #e8ebf1; --muted: #9aa4b4; --line: #38404c; --line-weak: #2a313b;
     --sel: #8fb0ff; --sel-weak: #1f2b45; --rec: #5fcdb8; --rec-weak: #17302b; --warn: #f0a04b; }
 }
+body.round { --bg: #d9e1de; --panel: #f3f6f5; --text: #12201d; --muted: #526561; --line: #b4c2be; --line-weak: #d0dad7;
+  --sel: #0e6657; --sel-weak: #d2ebe5; --rec: #0e6657; --rec-weak: #d2ebe5; --warn: #a65500; }
+@media (prefers-color-scheme: dark) {
+  body.round { --bg: #0f1614; --panel: #18211f; --text: #e3efec; --muted: #93aaa5; --line: #2c3b38; --line-weak: #222e2b;
+    --sel: #4fd1b8; --sel-weak: #17332e; --rec: #4fd1b8; --rec-weak: #17332e; --warn: #f0a04b; }
+}
 * { box-sizing: border-box; }
 body { margin: 0; background: var(--bg); color: var(--text); font: 15px/1.7 var(--sans); }
 .shell { max-width: 1040px; margin: 0 auto; display: grid; grid-template-columns: 224px 1fr; gap: 0 28px; padding: 24px 16px 0; }
@@ -26,16 +32,19 @@ aside h2 { font-size: 13px; font-weight: 700; margin: 0 0 8px; color: var(--mute
 .steps li.done::before { background: var(--muted); border-color: var(--muted); }
 .steps li.cur { color: var(--text); font-weight: 700; }
 .steps li.cur::before { border-color: var(--sel); background: var(--sel); box-shadow: 0 0 0 3px var(--sel-weak); }
-.idx { list-style: none; margin: 0 0 10px; padding: 0; display: grid; gap: 2px; }
-.idx a { display: grid; grid-template-columns: 34px 1fr 16px; gap: 4px; padding: 5px 8px; font-size: 13px; color: var(--text);
-  text-decoration: none; line-height: 1.5; border-radius: 8px; cursor: pointer; }
-.idx a:hover { background: var(--sel-weak); }
-.idx a.cur { background: var(--sel); color: var(--panel); font-weight: 700; }
-.idx .t { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-.idx .st { text-align: center; font-family: var(--mono); color: var(--muted); }
-.idx .st.ok { color: var(--rec); } .idx .st.ask { color: var(--warn); } .idx .st.hold { color: var(--warn); }
-.idx a.cur .st { color: var(--panel); }
-.count { font-size: 12px; color: var(--muted); margin: 0; }
+.rail { display: flex; gap: 4px; align-items: center; flex-wrap: wrap; margin-top: 8px; }
+.rail .phase, .rail .count { font-size: 12.5px; color: var(--muted); margin: 0 8px 0 0; }
+.rail .count { margin: 0 0 0 auto; }
+.rail a { display: flex; gap: 4px; padding: 4px 8px; font: 700 12.5px/1.4 var(--mono); color: var(--muted); text-decoration: none;
+  border: 1px solid var(--line); border-radius: 6px; background: var(--panel); cursor: pointer; }
+.rail a:hover { border-color: var(--sel); }
+.rail a:focus-visible { outline: 2px solid var(--sel); outline-offset: 1px; }
+.rail a.cur { background: var(--text); color: var(--panel); border-color: var(--text); }
+.rail .st.ok { color: var(--rec); } .rail .st.ask { color: var(--warn); } .rail .st.hold { color: var(--warn); }
+.rail a.cur .st { color: var(--panel); }
+body.round .shell { grid-template-columns: 1fr; max-width: 860px; }
+body.round aside { display: none; }
+@media (min-width: 761px) { body.round header.top { position: sticky; top: 0; z-index: 5; background: var(--bg); } }
 main { min-width: 0; }
 header.top { padding: 4px 0 14px; border-bottom: 1px solid var(--line); margin-bottom: 8px; }
 h1 { margin: 0; font-size: 22px; line-height: 1.4; font-weight: 700; }
@@ -78,8 +87,8 @@ details.long > summary { cursor: pointer; color: var(--sel); font-size: 13px; ma
 .q:not(.active) .opt { background: var(--panel); }
 .opt:hover { border-color: var(--sel); }
 .opt input { position: absolute; opacity: 0; }
-.cap { width: 30px; height: 30px; display: grid; place-items: center; font: 700 14px/1 var(--mono); border: 1px solid var(--line);
-  border-bottom-width: 3px; border-radius: 6px; background: var(--bg); }
+.cap { width: 30px; height: 30px; display: grid; place-items: center; font: 700 14px/1 var(--mono); border: 1.5px solid var(--line);
+  border-radius: 50%; background: var(--panel); }
 .opt:has(input:checked) { background: var(--sel-weak); border-color: var(--sel); }
 .opt:has(input:checked) .cap { background: var(--sel); color: var(--panel); border-color: var(--sel); }
 .opt:has(input:focus-visible) { outline: 2px solid var(--sel); outline-offset: 2px; }
@@ -120,9 +129,7 @@ button.clear { font-size: 12.5px; padding: 1px 10px; color: var(--muted); }
 #status { font-size: 13px; color: var(--muted); }
 #status.warn { color: var(--warn); }
 #status.ok { color: var(--rec); font-weight: 700; }
-.hint { margin-left: auto; font-size: 12.5px; color: var(--muted); display: flex; gap: 14px; }
-kbd { font: 700 11.5px/1 var(--mono); padding: 2px 6px; border: 1px solid var(--line); border-bottom-width: 2px; border-radius: 4px; background: var(--panel); color: var(--text); }
-@media (max-width: 760px) { .shell { grid-template-columns: 1fr; } aside { display: none; } .hint { display: none; } .q { margin-left: -8px; margin-right: -8px; padding: 16px 12px; } }
+@media (max-width: 760px) { .shell { grid-template-columns: 1fr; } aside { display: none; } .q { margin-left: -8px; margin-right: -8px; padding: 16px 12px; } }
 @media (prefers-reduced-motion: reduce) { .q { transition: none; } }
 .in-refresh { display: flex; gap: 12px; align-items: center; padding-top: 12px; padding-bottom: 12px; }
 .in-refresh .note { margin: 0; }
@@ -164,7 +171,6 @@ kbd { font: 700 11.5px/1 var(--mono); padding: 2px 6px; border: 1px solid var(--
       <button id="copy">Markdown をコピー</button>
       <button id="abort">中止</button>
       <span id="status"></span>
-      <span class="hint" id="hint"></span>
     </div>
   </main>
 </div>
@@ -177,6 +183,7 @@ kbd { font: 700 11.5px/1 var(--mono); padding: 2px 6px; border: 1px solid var(--
   window.__answersMd = '';
   window.__submitted = false;
 
+  if (data.mode === 'round') document.body.className = 'round';
   document.title = data.title || 'grill-form';
   document.getElementById('title').textContent = data.title || 'grill-form';
   document.getElementById('meta').textContent = data.session;
@@ -298,7 +305,7 @@ kbd { font: 700 11.5px/1 var(--mono); padding: 2px 6px; border: 1px solid var(--
     card.el.scrollIntoView({ block: 'center', behavior: reduce ? 'auto' : 'smooth' });
   }
   function advance(card) {
-    // 単一選択を選んだら、次の質問へ移る（最後の質問ではその場にとどまる）
+    // 単一選択をマウスで選んだら、次の質問へ移る（最後の質問ではその場にとどまる）
     var next = cards[cards.indexOf(card) + 1];
     if (!next) return;
     setTimeout(function () { setActive(next); scrollTo(next); }, 220);
@@ -409,7 +416,7 @@ kbd { font: 700 11.5px/1 var(--mono); padding: 2px 6px; border: 1px solid var(--
       if (active !== entry) setActive(entry);
     });
     card.addEventListener('change', function (e) {
-      // 矢印キーで動かしただけでは移らない。マウスで選んだときだけ移る（文字キーは別に処理する）
+      // 矢印キーで動かしただけでは移らない。マウスで選んだときだけ移る
       if (e.target.type === 'radio' && byMouse) advance(entry);
       byMouse = false;
       syncSide();
@@ -779,42 +786,41 @@ kbd { font: 700 11.5px/1 var(--mono); padding: 2px 6px; border: 1px solid var(--
     (data.questions || []).forEach(renderQuestion);
   }
 
-  // 左の一覧: 進み具合と、質問画面では質問ごとの回答状況
+  // 進み具合: 質問画面では上の一覧（質問ごとの回答状況）、ほかの画面では左の一覧
   var STATE_MARK = { '回答': ['●', 'ok'], '保留': ['△', 'hold'], '要確認': ['?', 'ask'], '未回答': ['○', ''] };
   var idxLinks = [];
   var countEl = null;
   function buildSide() {
-    var side = document.getElementById('side');
     var steps = ['入力', '事前確認', '質問', '最終確認'];
-    var curIdx = data.mode === 'intake' ? 0 : data.mode === 'final' ? 3 : (data.round === 0 ? 1 : 2);
+    if (data.mode === 'round') {
+      var rail = el('div', 'rail');
+      rail.appendChild(el('span', 'phase', data.round > 0 ? '質問 第 ' + data.round + ' ラウンド' : steps[1]));
+      cards.forEach(function (c) {
+        var a = el('a');
+        a.href = '#' + c.el.id;
+        a.title = c.q.title;
+        a.appendChild(el('span', '', c.q.id));
+        var st = el('span', 'st', '○');
+        a.appendChild(st);
+        a.addEventListener('click', function (e) { e.preventDefault(); setActive(c); scrollTo(c); });
+        rail.appendChild(a);
+        idxLinks.push({ a: a, st: st, card: c });
+      });
+      countEl = el('p', 'count');
+      rail.appendChild(countEl);
+      document.querySelector('header.top').appendChild(rail);
+      return;
+    }
+    var curIdx = data.mode === 'intake' ? 0 : 3;
+    var side = document.getElementById('side');
     side.appendChild(el('h2', '', '進み具合'));
     var ol = el('ol', 'steps');
     steps.forEach(function (name, i) {
       var text = name;
-      if (i === curIdx && data.mode === 'round' && data.round > 0) text = '質問 第 ' + data.round + ' ラウンド';
       if (i === curIdx && data.mode === 'final') text = '最終確認 第 ' + data.round + ' 版';
       ol.appendChild(el('li', i < curIdx ? 'done' : i === curIdx ? 'cur' : '', text));
     });
     side.appendChild(ol);
-    if (data.mode !== 'round' || !cards.length) return;
-    side.appendChild(el('h2', '', 'この画面の質問'));
-    var ul = el('ul', 'idx');
-    cards.forEach(function (c) {
-      var li = el('li');
-      var a = el('a');
-      a.href = '#' + c.el.id;
-      a.appendChild(el('span', '', c.q.id));
-      a.appendChild(el('span', 't', c.q.title));
-      var st = el('span', 'st', '○');
-      a.appendChild(st);
-      a.addEventListener('click', function (e) { e.preventDefault(); setActive(c); scrollTo(c); });
-      li.appendChild(a);
-      ul.appendChild(li);
-      idxLinks.push({ a: a, st: st, card: c });
-    });
-    side.appendChild(ul);
-    countEl = el('p', 'count');
-    side.appendChild(countEl);
   }
   function syncSide() {
     var n = 0;
@@ -829,33 +835,7 @@ kbd { font: 700 11.5px/1 var(--mono); padding: 2px 6px; border: 1px solid var(--
     if (countEl) countEl.textContent = '回答 ' + n + ' / ' + cards.length;
   }
   buildSide();
-  if (data.mode === 'round' && cards.length) {
-    setActive(cards[0]);
-    var hint = document.getElementById('hint');
-    function kbd(t) { return el('kbd', '', t); }
-    var h1 = el('span'); h1.appendChild(kbd('A')); h1.appendChild(document.createTextNode(' など候補の文字で選ぶ'));
-    var h2 = el('span'); h2.appendChild(kbd('J')); h2.appendChild(kbd('K')); h2.appendChild(document.createTextNode(' 移動'));
-    hint.appendChild(h1);
-    hint.appendChild(h2);
-  }
-  document.addEventListener('keydown', function (e) {
-    if (data.mode !== 'round' || !cards.length || e.ctrlKey || e.metaKey || e.altKey) return;
-    var t = e.target;
-    if (/^(TEXTAREA|BUTTON|SUMMARY)$/.test(t.tagName) || (t.tagName === 'INPUT' && t.type === 'text')) return;
-    var k = e.key.toLowerCase();
-    if (k === 'j' || k === 'k') {
-      var i = Math.max(0, Math.min(cards.length - 1, cards.indexOf(active) + (k === 'j' ? 1 : -1)));
-      setActive(cards[i]);
-      scrollTo(cards[i]);
-    } else if (active) {
-      var inp = active.inputs.filter(function (x) { return x.value.toLowerCase() === k; })[0];
-      if (!inp) return;
-      e.preventDefault();
-      inp.checked = inp.type === 'radio' ? true : !inp.checked;
-      if (inp.type === 'radio') advance(active);
-      syncSide();
-    }
-  });
+  if (data.mode === 'round' && cards.length) setActive(cards[0]);
 
   function build() {
     // 最終確認は round ではなく final（版番号）として書き、ラウンドの回答と区別する
