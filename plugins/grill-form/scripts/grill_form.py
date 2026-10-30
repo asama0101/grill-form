@@ -53,7 +53,7 @@ from pathlib import Path
 
 import folder_scan
 
-__version__ = "1.1.0"
+__version__ = "1.1.1"
 SPEC_PREFIX = "SPEC"
 TEMP_ROOT_NAME = "grill-form"
 KEEP_DAYS = 3
