@@ -190,6 +190,27 @@ def test_SKILLは保存先の確認を承認より前の入力フォームの手
     assert text.index("存在するフォルダか確認") < text.index("\n10. ")
 
 
+@pytest.mark.parametrize(
+    "present",
+    [
+        "点検1",
+        "保留（「あとで決める」）が残っていない",
+        "判断がぶれる言葉",
+        "判定できる",
+        "点検2",
+        "文脈を持たない新しいサブエージェント",
+        "SPEC の中に矛盾がないか",
+    ],
+)
+def test_SKILLに質問を終える前とSPEC案を出す前の点検がある(text, present):
+    assert present in text
+
+
+def test_SKILLの点検1は手順9より前にあり_点検2は最終確認のフォームを開く前にある(text):
+    assert text.index("点検1") < text.index("\n9. ")
+    assert text.index("点検2") < text.index("`render --final")
+
+
 UPSTREAM_COMMIT = "95249b0b49782349740fd9b8c6ce32b4e59e497a"
 MAX_LINE = 400
 
