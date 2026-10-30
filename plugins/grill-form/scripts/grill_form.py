@@ -57,7 +57,14 @@ __version__ = "1.1.0"
 SPEC_PREFIX = "SPEC"
 TEMP_ROOT_NAME = "grill-form"
 KEEP_DAYS = 3
-INTAKE_SECTIONS = ("更新", "依頼文", "保留の依頼文", "参考資料", "保存先")
+# 回答に出る節の順と、見出しの次の行の書き出し（本文を持つ節だけ。空は判定しない）
+INTAKE_SECTIONS = {
+    "更新": "- 読み直し:",
+    "依頼文": "- 種別:",
+    "保留の依頼文": "- 種別:",
+    "参考資料": "",
+    "保存先": "",
+}
 TEMPLATE = Path(__file__).with_name("grill_form_template.html")
 INVALID = re.compile(r'[\\/:*?"<>|\s]+')
 
@@ -101,8 +108,9 @@ def cmd_init(args) -> int:
     stamp = datetime.datetime.now().strftime("%Y-%m-%d_%H%M")
     root = temp_root()
     prune_old(root)
-    tmp = root / f"{stamp}_{normalize_theme(args.theme)}"
-    tmp.mkdir(parents=True, exist_ok=True)
+    root.mkdir(parents=True, exist_ok=True)
+    # 同じテーマを同じ分に呼んでも、別のフォルダにする
+    tmp = tempfile.mkdtemp(prefix=f"{stamp}_{normalize_theme(args.theme)}_", dir=root)
     print(tmp)
     return 0
 
@@ -126,15 +134,21 @@ def parse_intake_answers(md: str) -> dict:
         "paths": [],
         "dest": "",
     }
+    lines = md.splitlines()
     sections: dict[str, list[str]] = {}
-    name = None
-    for line in md.splitlines():  # 最初の節より前（frontmatter）は読み飛ばす
-        # 既知の節名だけを区切りにする（依頼文の本文に「## 背景」などがあっても読める）
-        if line.startswith("## ") and line[3:].strip() in INTAKE_SECTIONS:
-            name = line[3:].strip()
-            sections[name] = []
-        elif name is not None:
-            sections[name].append(line)
+    end = len(lines)
+    # 依頼文の本文に「## 参考資料」などの同じ行があっても読めるよう、節は後ろから探す。
+    # 本文を持つ節（更新・依頼文・保留の依頼文）は、見出しの次の行でも見分ける
+    for name, follow in reversed(INTAKE_SECTIONS.items()):
+        for i in range(end - 1, -1, -1):
+            if (
+                lines[i].startswith("## ")
+                and lines[i][3:].strip() == name
+                and "\n".join(lines[i + 1 : i + 2]).startswith(follow)
+            ):
+                sections[name] = lines[i + 1 : end]
+                end = i
+                break
     state["refresh"] = "更新" in sections
     # 「保留の依頼文」は、選ばれていない側（読み直しで消えないよう退避した入力）
     for key in ("保留の依頼文", "依頼文"):
@@ -146,8 +160,7 @@ def parse_intake_answers(md: str) -> dict:
                 (ln.strip().strip('"').strip() for ln in body[1:] if ln.strip()), ""
             )
         elif body:
-            rest = body[1:] if body[0].startswith("- 種別:") else body
-            state["request"] = "\n".join(rest).strip()
+            state["request"] = "\n".join(body[1:]).strip()
     state["paths"] = [
         ln[2:].strip().strip('"').strip()
         for ln in sections.get("参考資料", [])
@@ -160,10 +173,11 @@ def parse_intake_answers(md: str) -> dict:
 
 
 def embed(data: dict) -> str:
-    # <script> 内に埋め込むため、終了タグと行区切り文字を無害化する
+    # <script> 内に埋め込むため、< と行区切り文字を無害化する
+    # （< を残すと、<!-- のあとの <script で、ブラウザが終了タグを見失う）
     text = json.dumps(data, ensure_ascii=False)
     return (
-        text.replace("</", "<\\/")
+        text.replace("<", "\\u003c")
         .replace("\u2028", "\\u2028")
         .replace("\u2029", "\\u2029")
     )

@@ -15,7 +15,7 @@
 - Python 3.8 以上（標準ライブラリだけで動きます）
 - [Playwright MCP](https://github.com/microsoft/playwright-mcp): ローカルの HTML を開き、送信を検知するために使います。このプラグインには同梱していないので、導入方法の手順 3 で登録します。
 - ブラウザ: Chrome か Edge を推奨します。
-- OS: Windows 11 で動作を確認しています。macOS と Linux は、確認していません。
+- OS: Windows 11 だけが対象です。macOS と Linux は対象外です。
 
 ## 導入方法
 

@@ -107,6 +107,14 @@ def make_session(temp_home, monkeypatch, capsys):
     return Path(capsys.readouterr().out.strip())
 
 
+def test_initは同じテーマを続けて呼んでも別のフォルダを作る(
+    temp_home, monkeypatch, capsys
+):
+    first = make_session(temp_home, monkeypatch, capsys)
+    second = make_session(temp_home, monkeypatch, capsys)
+    assert first != second
+
+
 def test_cleanupはSPECがなければ何も消さない(temp_home, workdir, monkeypatch, capsys):
     d = make_session(temp_home, monkeypatch, capsys)
     code = run(
@@ -387,6 +395,32 @@ def test_parse_intake_answersは依頼文の中の見出し風の行を本文と
     assert got["dest"] == "C:\\w"
 
 
+def test_parse_intake_answersは依頼文の中の既知の見出しと同じ行を本文として読む():
+    md = (
+        "---\nintake: 1\n---\n## 依頼文\n- 種別: テキスト\n"
+        "旧仕様は次のとおり\n## 参考資料\n社内 Wiki にある\n## 保存先\n別の場所\n\n"
+        "## 参考資料\n- C:\\w\\a.pdf\n\n## 保存先\nC:\\w\n"
+    )
+    got = grill_form.parse_intake_answers(md)
+    assert got["request"] == (
+        "旧仕様は次のとおり\n## 参考資料\n社内 Wiki にある\n## 保存先\n別の場所"
+    )
+    assert got["paths"] == ["C:\\w\\a.pdf"]
+    assert got["dest"] == "C:\\w"
+
+
+def test_parse_intake_answersは次の行が合わない見出し風の行を節にしない():
+    md = (
+        "---\nintake: 1\n---\n## 依頼文\n- 種別: テキスト\n"
+        "## 更新\n手順を書いた\n## 保留の依頼文\n続き\n\n"
+        "## 参考資料\n\n## 保存先\nC:\\w\n"
+    )
+    got = grill_form.parse_intake_answers(md)
+    assert got["refresh"] is False
+    assert got["request"] == "## 更新\n手順を書いた\n## 保留の依頼文\n続き"
+    assert got["request_file"] == ""
+
+
 def test_render_intakeは空の回答で_inputの値を消さない(
     workdir, tmp_path, monkeypatch, capsys
 ):
@@ -438,7 +472,14 @@ def test_入力フォームの描画はintroを表示する():
 def test_埋め込みはscript終了タグを無害化する():
     out = grill_form.embed({"tree": {"name": "a</script>b"}})
     assert "</script>" not in out
-    assert "<\\/script>" in out
+    assert "\\u003c/script>" in out
+
+
+def test_埋め込みはscriptの途中で解釈される開始記号を無害化する():
+    data = {"body": "コメント <!-- のあとの <script> x"}
+    out = grill_form.embed(data)
+    assert "<" not in out
+    assert json.loads(out) == data
 
 
 def render_round(monkeypatch, tmp_path, capsys) -> str:

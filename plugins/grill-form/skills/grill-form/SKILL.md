@@ -49,7 +49,7 @@ allowed-tools: Bash(python "${CLAUDE_PLUGIN_ROOT}/scripts/grill_form.py" *) Bash
 4. 質問 JSON を書く。置き場所は `<D>`。形式は `grill_form.py` の docstring を参照（`title`, `intro`, `questions[]` = `id`, `title`, `body`, `multi`, `options[]`（省略可）= `key`, `label`, `desc`、`recommended[]`, `reason`）。
 5. 生成: `python "${CLAUDE_PLUGIN_ROOT}/scripts/grill_form.py" render --session-dir "<D>" --round <N> --input <json>` → `<D>/round-N.html`。
 6. Playwright MCP で `browser_navigate` により `file://` URL を開く。
-   - Windows は `file:///C:/.../round-N.html` のようにスラッシュ区切りにする。macOS/Linux は `file:///home/.../round-N.html`。
+   - `file:///C:/.../round-N.html` のように、スラッシュ区切りにする。
    - ユーザーに「回答して『送信』を押してください」と伝える。
    - Playwright MCP の `browser_*` ツールが使えない場合は、README の「Playwright MCP を登録する」を案内して止まる（スキルには MCP を同梱していない）。
 7. 送信を自動で待つ（ユーザーに「完了」と入力させない）。`browser_evaluate` で次の関数を実行すると、送信されるか約100秒たつまでブロックして結果を返す。
