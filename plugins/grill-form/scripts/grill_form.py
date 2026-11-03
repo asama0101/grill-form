@@ -52,7 +52,7 @@ from pathlib import Path
 
 import folder_scan
 
-__version__ = "1.1.1"
+__version__ = "1.0.0"
 TEMP_ROOT_NAME = "grill-form"
 KEEP_DAYS = 3
 # 回答に出る節の順と、見出しの次の行の書き出し（本文を持つ節だけ。空は判定しない）
