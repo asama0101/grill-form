@@ -5,12 +5,11 @@
                               そのパスを1行で出力する
                               （HTML・回答・質問 JSON を置く）。
                               作成時に、3 日より古い一時セッションを削除する
-  spec-path --theme T [--parent P]
-                              SPEC の保存先 <親>/SPEC-<テーマ>-<日付>.md を
-                              決めて出力する（ファイルは作らない）。
-                              親は --parent、なければ作業フォルダ
-                              （このスクリプトのカレントフォルダ）。
-                              相対パスは作業フォルダから解決する。
+  spec-path --theme T         SPEC の保存先
+                              <作業フォルダ>/docs/grill-form/specs/<日付>-<テーマ>-design.md
+                              を決め、フォルダを作って、パスを出力する
+                              （ファイルは作らない）。作業フォルダは、
+                              このスクリプトのカレントフォルダ。
                               同名のファイルがあれば末尾に連番を付ける
   render --session-dir D --round N [--final] --input J.json
                               質問 JSON から round-N.html を生成し、パスを出力する。
@@ -20,10 +19,10 @@
   render --session-dir D --intake [--input J.json] [--answers A.md]
                               入力フォーム intake.html を生成する。作業フォルダ
                               （カレントフォルダ）の一覧を調べて埋め込む。
-                              J.json は {"title","intro","request","dest"} で省略可
-                              （request は依頼文欄の初期入力、dest は保存先の初期値で、
-                              省略すると作業フォルダ）。A.md は入力フォームの回答で、
-                              あれば依頼文・参考資料・保存先をそこから復元する
+                              J.json は {"title","intro","request"} で省略可
+                              （request は依頼文欄の初期入力）。
+                              A.md は入力フォームの回答で、
+                              あれば依頼文・参考資料をそこから復元する
                               （「フォルダを読み直す」の作り直し用。J.json より優先）
   cleanup --session-dir D --spec S [--yes]
                               一時セッション D を削除対象として表示する。
@@ -54,7 +53,6 @@ from pathlib import Path
 import folder_scan
 
 __version__ = "1.1.1"
-SPEC_PREFIX = "SPEC"
 TEMP_ROOT_NAME = "grill-form"
 KEEP_DAYS = 3
 # 回答に出る節の順と、見出しの次の行の書き出し（本文を持つ節だけ。空は判定しない）
@@ -63,7 +61,6 @@ INTAKE_SECTIONS = {
     "依頼文": "- 種別:",
     "保留の依頼文": "- 種別:",
     "参考資料": "",
-    "保存先": "",
 }
 TEMPLATE = Path(__file__).with_name("grill_form_template.html")
 INVALID = re.compile(r'[\\/:*?"<>|\s]+')
@@ -87,16 +84,11 @@ def normalize_theme(theme: str) -> str:
     return INVALID.sub("-", theme).strip("-") or "untitled"
 
 
-def spec_path(
-    theme: str,
-    parent: str | None = None,
-    today: datetime.date | None = None,
-) -> Path:
+def spec_path(theme: str, today: datetime.date | None = None) -> Path:
     # 作業フォルダ基準で SPEC のパスを決める。既存のファイルは上書きしない
-    base = Path(parent).expanduser() if parent else Path()
-    base = (Path.cwd() / base).resolve() if not base.is_absolute() else base
+    base = Path.cwd() / "docs" / "grill-form" / "specs"
     day = (today or datetime.date.today()).isoformat()
-    stem = f"{SPEC_PREFIX}-{normalize_theme(theme)}-{day}"
+    stem = f"{day}-{normalize_theme(theme)}-design"
     cand, n = base / f"{stem}.md", 2
     while cand.exists():
         cand = base / f"{stem}-{n}.md"
@@ -116,10 +108,12 @@ def cmd_init(args) -> int:
 
 
 def cmd_spec_path(args) -> int:
-    path = spec_path(args.theme, args.parent)
-    if path.parent.exists() and not path.parent.is_dir():
-        print(f"保存先の親がフォルダではありません: {path.parent}", file=sys.stderr)
-        return 2
+    path = spec_path(args.theme)
+    try:
+        path.parent.mkdir(parents=True, exist_ok=True)
+    except OSError as e:
+        print(f"保存先のフォルダを作れません: {path.parent} ({e})", file=sys.stderr)
+        return 1
     print(path)
     return 0
 
@@ -132,7 +126,6 @@ def parse_intake_answers(md: str) -> dict:
         "request": "",
         "request_file": "",
         "paths": [],
-        "dest": "",
     }
     lines = md.splitlines()
     sections: dict[str, list[str]] = {}
@@ -166,9 +159,6 @@ def parse_intake_answers(md: str) -> dict:
         for ln in sections.get("参考資料", [])
         if ln.startswith("- ") and ln[2:].strip()
     ]
-    state["dest"] = next(
-        (ln.strip() for ln in sections.get("保存先", []) if ln.strip()), ""
-    )
     return state
 
 
@@ -202,8 +192,7 @@ def cmd_render(args) -> int:
         payload["cwd"] = str(Path.cwd())
         payload["tree"] = folder_scan.scan(Path.cwd())
         payload.setdefault("kind", "text")
-        payload["dest"] = payload.get("dest") or str(Path.cwd())
-        payload.setdefault("title", "入力（依頼文・参考資料・保存先）")
+        payload.setdefault("title", "入力（依頼文・参考資料）")
         out = d / "intake.html"
     else:
         if args.round is None or not args.input:
@@ -275,10 +264,6 @@ def main() -> int:
 
     p = sub.add_parser("spec-path")
     p.add_argument("--theme", required=True)
-    p.add_argument(
-        "--parent",
-        help="SPEC を保存する親フォルダ（既定: 作業フォルダ）",
-    )
     p.set_defaults(fn=cmd_spec_path)
 
     p = sub.add_parser("render")

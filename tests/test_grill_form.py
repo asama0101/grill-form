@@ -39,50 +39,34 @@ def run(monkeypatch, *argv):
     return grill_form.main()
 
 
-def test_spec_pathは作業フォルダ直下にSPEC_テーマ_日付を返す(workdir):
+SPECS = Path("docs") / "grill-form" / "specs"
+
+
+def test_spec_pathは作業フォルダのdocs配下にテーマ_日付_designを返す(workdir):
     assert grill_form.spec_path("api-design", today=TODAY) == (
-        workdir / "SPEC-api-design-2026-10-24.md"
+        workdir / "docs" / "grill-form" / "specs" / "2026-10-24-api-design-design.md"
     )
 
 
 def test_spec_pathは既存ファイルがあれば連番を進める(workdir):
-    (workdir / "SPEC-api-design-2026-10-24.md").write_text("1", encoding="utf-8")
-    (workdir / "SPEC-api-design-2026-10-24-2.md").write_text("2", encoding="utf-8")
+    d = workdir / SPECS
+    d.mkdir(parents=True)
+    (d / "2026-10-24-api-design-design.md").write_text("1", encoding="utf-8")
+    (d / "2026-10-24-api-design-design-2.md").write_text("2", encoding="utf-8")
     assert grill_form.spec_path("api-design", today=TODAY) == (
-        workdir / "SPEC-api-design-2026-10-24-3.md"
+        d / "2026-10-24-api-design-design-3.md"
     )
-    assert (workdir / "SPEC-api-design-2026-10-24.md").read_text("utf-8") == "1"
+    assert (d / "2026-10-24-api-design-design.md").read_text("utf-8") == "1"
 
 
 def test_spec_pathは記号だけのテーマをuntitledにする(workdir):
     assert grill_form.spec_path("///", today=TODAY).name == (
-        "SPEC-untitled-2026-10-24.md"
-    )
-
-
-def test_spec_pathの相対parentは作業フォルダ基準になる(workdir):
-    assert grill_form.spec_path("t", parent="out", today=TODAY) == (
-        workdir / "out" / "SPEC-t-2026-10-24.md"
-    )
-
-
-def test_spec_pathの絶対parentはそのまま使う(workdir, tmp_path):
-    other = tmp_path / "other"
-    assert grill_form.spec_path("t", parent=str(other), today=TODAY) == (
-        other / "SPEC-t-2026-10-24.md"
-    )
-
-
-def test_spec_pathのparentは先頭のチルダを展開する(workdir, tmp_path, monkeypatch):
-    monkeypatch.setenv("HOME", str(tmp_path))
-    monkeypatch.setenv("USERPROFILE", str(tmp_path))
-    assert grill_form.spec_path("t", parent="~/x", today=TODAY) == (
-        tmp_path / "x" / "SPEC-t-2026-10-24.md"
+        "2026-10-24-untitled-design.md"
     )
 
 
 def test_spec_pathはファイルもフォルダも作らない(workdir):
-    grill_form.spec_path("t", parent="out", today=TODAY)
+    grill_form.spec_path("t", today=TODAY)
     assert list(workdir.iterdir()) == []
 
 
@@ -90,8 +74,39 @@ def test_spec_pathサブコマンドは絶対パスを1行で出力する(workdi
     assert run(monkeypatch, "spec-path", "--theme", "demo") == 0
     lines = capsys.readouterr().out.splitlines()
     assert len(lines) == 1
-    assert Path(lines[0]).parent == workdir
-    assert Path(lines[0]).name.startswith("SPEC-demo-")
+    assert Path(lines[0]).parent == workdir / "docs" / "grill-form" / "specs"
+    assert Path(lines[0]).name.endswith("-demo-design.md")
+
+
+def test_spec_pathサブコマンドは保存先のフォルダを作るがSPECは作らない(
+    workdir, monkeypatch
+):
+    assert run(monkeypatch, "spec-path", "--theme", "demo") == 0
+    assert (workdir / SPECS).is_dir()
+    assert list((workdir / SPECS).iterdir()) == []
+
+
+def test_spec_pathサブコマンドは保存先のフォルダがあっても2回続けて成功する(
+    workdir, monkeypatch
+):
+    assert run(monkeypatch, "spec-path", "--theme", "demo") == 0
+    assert run(monkeypatch, "spec-path", "--theme", "demo") == 0
+
+
+def test_spec_pathサブコマンドはdocsがファイルなら終了コード1で止まる(
+    workdir, monkeypatch, capsys
+):
+    (workdir / "docs").write_text("x", encoding="utf-8")
+    assert run(monkeypatch, "spec-path", "--theme", "demo") == 1
+    captured = capsys.readouterr()
+    assert captured.out == ""
+    assert "保存先のフォルダを作れません" in captured.err
+
+
+def test_spec_pathサブコマンドは_parentを受け付けない(workdir, monkeypatch):
+    with pytest.raises(SystemExit) as e:
+        run(monkeypatch, "spec-path", "--theme", "t", "--parent", "x")
+    assert e.value.code == 2
 
 
 def test_initは一時セッションのパスだけを1行で出力する(temp_home, monkeypatch, capsys):
@@ -230,21 +245,21 @@ def test_テンプレートはinnerHTMLを使わない():
     assert lines[0].strip().startswith("//")  # 「使わない」という注釈の 1 行だけ
 
 
-def test_入力フォームに保存先欄があり回答の節を持つ(tmp_path, monkeypatch, capsys):
+def test_入力フォームに保存先欄がない(tmp_path, monkeypatch, capsys):
     html = render_intake(monkeypatch, tmp_path, capsys)
-    assert "保存先（親フォルダ）" in html
-    assert "\\n## 保存先\\n" in html
+    assert "保存先" not in html
+    assert "in-pick one" not in html
 
 
-def test_入力フォームの保存先は作業フォルダを初期値にする(
-    workdir, tmp_path, monkeypatch, capsys
-):
-    html = render_intake(monkeypatch, tmp_path, capsys)
-    start = html.index('<script id="data" type="application/json">') + len(
-        '<script id="data" type="application/json">'
-    )
-    data = json.loads(html[start : html.index("</script>", start)])
-    assert data["dest"] == str(workdir)
+@pytest.mark.parametrize(
+    "gone",
+    ["outSel", "outPath", "outTree", "outSum", "extraOut", "保存先", "in-pick one"],
+)
+def test_入力フォームのテンプレートから保存先用の変数が消えている(gone):
+    text = (
+        ROOT / "plugins" / "grill-form" / "scripts" / "grill_form_template.html"
+    ).read_text(encoding="utf-8")
+    assert gone not in text
 
 
 def test_入力フォームにフォルダを選ぶボタンはない(tmp_path, monkeypatch, capsys):
@@ -276,8 +291,7 @@ def test_parse_intake_answersはテキストの依頼文を読む():
     md = (
         "---\nsession: s\nintake: 1\n---\n"
         "## 依頼文\n- 種別: テキスト\n計画を詰めたい\n2 行目\n\n"
-        "## 参考資料\n- C:\\work dir\\資料\\a.pdf\n- D:\\外\\b.xlsx\n\n"
-        "## 保存先\nC:\\work dir\n"
+        "## 参考資料\n- C:\\work dir\\資料\\a.pdf\n- D:\\外\\b.xlsx\n"
     )
     assert grill_form.parse_intake_answers(md) == {
         "refresh": False,
@@ -285,7 +299,6 @@ def test_parse_intake_answersはテキストの依頼文を読む():
         "request": "計画を詰めたい\n2 行目",
         "request_file": "",
         "paths": ["C:\\work dir\\資料\\a.pdf", "D:\\外\\b.xlsx"],
-        "dest": "C:\\work dir",
     }
 
 
@@ -293,7 +306,7 @@ def test_parse_intake_answersはファイルの依頼文を引用符を外して
     md = (
         "---\nsession: s\nintake: 1\n---\n"
         '## 依頼文\n- 種別: ファイル\n"C:\\work\\依頼書.docx"\n\n'
-        "## 参考資料\n\n## 保存先\nC:\\work\n"
+        "## 参考資料\n"
     )
     got = grill_form.parse_intake_answers(md)
     assert got["kind"] == "file"
@@ -303,13 +316,9 @@ def test_parse_intake_answersはファイルの依頼文を引用符を外して
 
 
 def test_parse_intake_answersは更新の印を読む():
-    md = (
-        "---\nsession: s\nintake: 1\n---\n"
-        "## 更新\n- 読み直し: はい\n\n## 保存先\nC:\\w\n"
-    )
+    md = "---\nsession: s\nintake: 1\n---\n## 更新\n- 読み直し: はい\n"
     got = grill_form.parse_intake_answers(md)
     assert got["refresh"] is True
-    assert got["dest"] == "C:\\w"
 
 
 def test_parse_intake_answersは節が欠けても既定値を返す():
@@ -319,7 +328,6 @@ def test_parse_intake_answersは節が欠けても既定値を返す():
         "request": "",
         "request_file": "",
         "paths": [],
-        "dest": "",
     }
 
 
@@ -341,7 +349,7 @@ def test_render_intakeは回答から入力を復元する(workdir, tmp_path, mo
     answers.write_text(
         "---\nsession: s\nintake: 1\n---\n## 更新\n- 読み直し: はい\n\n"
         "## 依頼文\n- 種別: ファイル\nD:\\外\\依頼書.docx\n\n"
-        "## 参考資料\n- D:\\外\\x.pdf\n\n## 保存先\nD:\\外\\out\n",
+        "## 参考資料\n- D:\\外\\x.pdf\n",
         encoding="utf-8",
     )
     run(
@@ -358,15 +366,24 @@ def test_render_intakeは回答から入力を復元する(workdir, tmp_path, mo
     assert data["kind"] == "file"
     assert data["request_file"] == "D:\\外\\依頼書.docx"
     assert data["paths"] == ["D:\\外\\x.pdf"]
-    assert data["dest"] == "D:\\外\\out"
+
+
+def test_parse_intake_answersは古い形式の保存先の節を無視する():
+    body = (
+        "---\nintake: 1\n---\n## 依頼文\n- 種別: テキスト\n本文\n\n"
+        "## 参考資料\n- C:\\w\\a.pdf\n"
+    )
+    got = grill_form.parse_intake_answers(body + "\n## 保存先\nC:\\w\n")
+    assert got == grill_form.parse_intake_answers(body)
+    assert "dest" not in got
+    assert got["paths"] == ["C:\\w\\a.pdf"]
 
 
 def test_parse_intake_answersは保留の依頼文から他方の入力を復元する():
     md = (
         "---\nintake: 1\n---\n## 更新\n- 読み直し: はい\n\n"
         "## 依頼文\n- 種別: ファイル\nC:\\w\\依頼書.docx\n\n"
-        "## 保留の依頼文\n- 種別: テキスト\n書きかけの依頼文\n2 行目\n\n"
-        "## 保存先\nC:\\w\n"
+        "## 保留の依頼文\n- 種別: テキスト\n書きかけの依頼文\n2 行目\n"
     )
     got = grill_form.parse_intake_answers(md)
     assert got["kind"] == "file"
@@ -386,34 +403,27 @@ def test_parse_intake_answersは保留のファイルからも復元する():
 
 
 def test_parse_intake_answersは依頼文の中の見出し風の行を本文として読む():
-    md = (
-        "---\nintake: 1\n---\n## 依頼文\n- 種別: テキスト\n"
-        "前置き\n## 背景\n詳細\n\n## 保存先\nC:\\w\n"
-    )
+    md = "---\nintake: 1\n---\n## 依頼文\n- 種別: テキスト\n前置き\n## 背景\n詳細\n"
     got = grill_form.parse_intake_answers(md)
     assert got["request"] == "前置き\n## 背景\n詳細"
-    assert got["dest"] == "C:\\w"
 
 
 def test_parse_intake_answersは依頼文の中の既知の見出しと同じ行を本文として読む():
     md = (
         "---\nintake: 1\n---\n## 依頼文\n- 種別: テキスト\n"
-        "旧仕様は次のとおり\n## 参考資料\n社内 Wiki にある\n## 保存先\n別の場所\n\n"
-        "## 参考資料\n- C:\\w\\a.pdf\n\n## 保存先\nC:\\w\n"
+        "旧仕様は次のとおり\n## 参考資料\n社内 Wiki にある\n\n"
+        "## 参考資料\n- C:\\w\\a.pdf\n"
     )
     got = grill_form.parse_intake_answers(md)
-    assert got["request"] == (
-        "旧仕様は次のとおり\n## 参考資料\n社内 Wiki にある\n## 保存先\n別の場所"
-    )
+    assert got["request"] == ("旧仕様は次のとおり\n## 参考資料\n社内 Wiki にある")
     assert got["paths"] == ["C:\\w\\a.pdf"]
-    assert got["dest"] == "C:\\w"
 
 
 def test_parse_intake_answersは次の行が合わない見出し風の行を節にしない():
     md = (
         "---\nintake: 1\n---\n## 依頼文\n- 種別: テキスト\n"
         "## 更新\n手順を書いた\n## 保留の依頼文\n続き\n\n"
-        "## 参考資料\n\n## 保存先\nC:\\w\n"
+        "## 参考資料\n"
     )
     got = grill_form.parse_intake_answers(md)
     assert got["refresh"] is False
@@ -426,12 +436,12 @@ def test_render_intakeは空の回答で_inputの値を消さない(
 ):
     answers = tmp_path / "a.md"
     answers.write_text(
-        "---\nintake: 1\n---\n## 依頼文\n- 種別: テキスト\n\n## 保存先\n",
+        "---\nintake: 1\n---\n## 依頼文\n- 種別: テキスト\n",
         encoding="utf-8",
     )
     j = tmp_path / "in.json"
     j.write_text(
-        json.dumps({"request": "初期の依頼文", "dest": "D:\\out"}),
+        json.dumps({"request": "初期の依頼文"}),
         encoding="utf-8",
     )
     run(
@@ -448,7 +458,7 @@ def test_render_intakeは空の回答で_inputの値を消さない(
     html = Path(capsys.readouterr().out.strip()).read_text(encoding="utf-8")
     data = intake_data(html)
     assert data["request"] == "初期の依頼文"
-    assert data["dest"] == "D:\\out"
+    assert "dest" not in data
     assert "refresh" not in data
 
 
@@ -516,21 +526,6 @@ def test_推奨の候補を左の線で示していない(tmp_path, monkeypatch,
     assert "border-left: 4px solid var(--rec)" not in render_round(
         monkeypatch, tmp_path, capsys
     )
-
-
-def test_spec_pathは親が既存のファイルなら終了コード2で止まる(
-    workdir, monkeypatch, capsys
-):
-    (workdir / "a.txt").write_text("x", encoding="utf-8")
-    assert run(monkeypatch, "spec-path", "--theme", "t", "--parent", "a.txt") == 2
-    captured = capsys.readouterr()
-    assert captured.out == ""
-    assert "フォルダではありません" in captured.err
-
-
-def test_spec_pathは存在しない親ならそのままパスを返す(workdir, monkeypatch, capsys):
-    assert run(monkeypatch, "spec-path", "--theme", "t", "--parent", "new") == 0
-    assert Path(capsys.readouterr().out.strip()).parent == workdir / "new"
 
 
 def test_ツリーの切り捨て通知はフォルダだけに限らない文面にする():
