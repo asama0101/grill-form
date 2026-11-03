@@ -155,8 +155,8 @@ def test_stageサブコマンドの記述がどこにも残っていない(text)
     assert re.search(r"\bstage\b", text) is None
 
 
-def test_SKILLは保存先を入力フォームで受け取りRound0は3点のまま(text):
-    assert "`## 保存先`" in text
+def test_SKILLは保存先を聞かずRound0は3点のまま(text):
+    assert "`## 保存先`" not in text
     assert "次の3点を" in text
     assert "次の4点を" not in text
 
@@ -182,14 +182,6 @@ def test_SKILLに旧いファイルパス節の記述がない(text):
     assert "## ファイルパス" not in text
 
 
-def test_SKILLは保存先のフォルダの存在を確認する(text):
-    assert "存在するフォルダか確認" in text
-
-
-def test_SKILLは保存先の確認を承認より前の入力フォームの手順で行う(text):
-    assert text.index("存在するフォルダか確認") < text.index("\n10. ")
-
-
 @pytest.mark.parametrize(
     "present",
     [
@@ -197,18 +189,76 @@ def test_SKILLは保存先の確認を承認より前の入力フォームの手
         "保留（「あとで決める」）が残っていない",
         "判断がぶれる言葉",
         "判定できる",
-        "点検2",
+        "クロスレビュー",
         "文脈を持たない新しいサブエージェント",
-        "SPEC の中に矛盾がないか",
+        "矛盾がないか",
     ],
 )
 def test_SKILLに質問を終える前とSPEC案を出す前の点検がある(text, present):
     assert present in text
 
 
-def test_SKILLの点検1は手順9より前にあり_点検2は最終確認のフォームを開く前にある(text):
+def test_SKILLの点検1は手順9より前にありクロスレビューはフォームを開く前にある(
+    text,
+):
     assert text.index("点検1") < text.index("\n9. ")
-    assert text.index("点検2") < text.index("`render --final")
+    assert text.index("クロスレビュー") < text.index("`render --final")
+
+
+def test_SKILLに点検2の記述が残っていない(text):
+    assert "点検2" not in text
+
+
+@pytest.mark.parametrize(
+    "perspective",
+    [
+        "要件の網羅",
+        "計画への落とし込み",
+        "受入条件と矛盾",
+        "シンプルさ",
+        "リスクと非目標",
+    ],
+)
+def test_SKILLのクロスレビューに5観点がある(text, perspective):
+    assert perspective in text
+
+
+def test_SKILLのクロスレビューは再レビューを1回までにする(text):
+    assert "再レビューは 1 回まで" in text
+
+
+@pytest.mark.parametrize(
+    "present",
+    [
+        "docs/grill-form/specs",
+        "docs/grill-form/plans",
+        "status: 未対応",
+        "status: 完了",
+        "## 後続の手順",
+        "plan:",
+        "spec:",
+    ],
+)
+def test_SKILLに保存先とstatusと後続の手順の規約がある(text, present):
+    assert present in text
+
+
+@pytest.mark.parametrize(
+    "present",
+    [
+        "5 体、同時に起動する",
+        "---`・`status: 未対応`・`plan: （未作成）`・`---` の 4 行",
+        "`<SPEC のパス>` は、保存時に具体的な文字列で埋める",
+        "の計画は `docs/grill-form/plans/2026-11-03-api-design-2.md`",
+        "終了コードが 1 のとき",
+    ],
+)
+def test_SKILLの手順の要点が省かれていない(text, present):
+    assert present in text
+
+
+def test_SKILLのspec_pathに_parentを付けない(text):
+    assert "--parent" not in text
 
 
 UPSTREAM_COMMIT = "95249b0b49782349740fd9b8c6ce32b4e59e497a"
