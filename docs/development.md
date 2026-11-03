@@ -21,7 +21,7 @@ grill-form の仕組みとテストです。使い方は [README.md](../README.m
 | サブコマンド | 内容 |
 | --- | --- |
 | `init --theme T` | 一時セッションを作り、パスを 1 行で出力する。3 日より古い一時セッションを削除する |
-| `spec-path --theme T [--parent P]` | SPEC の保存先 `<親>/SPEC-<テーマ>-<日付>.md` を決めて出力する（ファイルは作らない）。同名があれば連番を付ける。親が既存のファイルなら終了コード 2 |
+| `spec-path --theme T` | SPEC の保存先 `<作業フォルダ>/docs/grill-form/specs/<日付>-<テーマ>-design.md` を決め、フォルダを作って出力する（ファイルは作らない）。同名があれば連番を付ける。フォルダを作れなければ終了コード 1 |
 | `render` | 質問 JSON（`--round N --input J.json`）、最終確認（`--final`）、入力フォーム（`--intake [--input J.json] [--answers A.md]`）の HTML を生成する。入力フォームは、作業フォルダの一覧（`folder_scan.py`）を埋め込む。`--answers` は、入力フォームの回答（`## 更新` つき）から入力を復元して作り直す |
 | `cleanup --session-dir D --spec S [--yes]` | 一時セッションを削除する。SPEC（S）がなければ何もしない |
 

@@ -136,9 +136,7 @@ button.clear { font-size: 12.5px; padding: 1px 10px; color: var(--muted); }
 .in-box > .note { margin: 0 0 6px; }
 .in-pick { display: grid; grid-template-columns: 240px 1fr; border: 1px solid var(--line); border-radius: 10px; overflow: hidden;
   min-height: 200px; margin: 8px 0; max-width: 100%; }
-.in-pick.one { grid-template-columns: 1fr; }
 .in-tree { border-right: 1px solid var(--line); padding: 6px; background: var(--bg); font-size: 14px; overflow: auto; max-height: 260px; }
-.in-pick.one .in-tree { border-right: 0; max-height: 220px; }
 .in-node { display: flex; align-items: center; gap: 6px; padding: 3px 6px; border-radius: 6px; cursor: pointer; white-space: nowrap; }
 .in-node:hover { background: var(--sel-weak); }
 .in-node.cur { background: var(--sel); color: var(--panel); font-weight: 700; }
@@ -468,7 +466,7 @@ button.clear { font-size: 12.5px; padding: 1px 10px; color: var(--muted); }
     };
   }
 
-  // 入力フォーム: 依頼文・参考資料・保存先
+  // 入力フォーム: 依頼文・参考資料
   var intakeGet = null;
   function intakeMarkdown(it, refresh) {
     var md = '---\nsession: ' + data.session + '\nintake: 1\n---\n';
@@ -484,7 +482,6 @@ button.clear { font-size: 12.5px; padding: 1px 10px; color: var(--muted); }
     }
     md += '## 参考資料\n';
     it.paths.forEach(function (p) { md += '- ' + p + '\n'; });
-    md += '\n## 保存先\n' + it.dest.replace(/\s*\r?\n\s*/g, ' ') + '\n';
     return md;
   }
 
@@ -518,10 +515,8 @@ button.clear { font-size: 12.5px; padding: 1px 10px; color: var(--muted); }
     var kind = data.kind === 'file' ? 'file' : 'text';
     var reqSel = { cur: root.path, file: '' };
     var inSel = { cur: root.path, picked: [], last: null };
-    var outSel = { sel: root.path };
     var extraReq = '';
     var extraPaths = [];
-    var extraOut = '';
     if (data.request_file) {
       if (fileSet[data.request_file]) { reqSel.file = data.request_file; reqSel.cur = dirOf(data.request_file); }
       else extraReq = data.request_file;
@@ -530,11 +525,7 @@ button.clear { font-size: 12.5px; padding: 1px 10px; color: var(--muted); }
       if (fileSet[p]) { inSel.picked.push(p); inSel.cur = dirOf(p); }
       else extraPaths.push(p);
     });
-    if (data.dest && data.dest !== data.cwd) {
-      if (nodes[data.dest]) outSel.sel = data.dest;
-      else extraOut = data.dest;
-    }
-    [reqSel.file].concat(inSel.picked).concat([outSel.sel]).forEach(function (p) { if (p) expandTo(p); });
+    [reqSel.file].concat(inSel.picked).forEach(function (p) { if (p) expandTo(p); });
 
     // 依頼文
     var rcard = el('section', 'q');
@@ -597,23 +588,6 @@ button.clear { font-size: 12.5px; padding: 1px 10px; color: var(--muted); }
     icard.appendChild(chosen);
     content.appendChild(icard);
 
-    // 保存先
-    var scard = el('section', 'q');
-    scard.appendChild(el('h2', '', '保存先（親フォルダ）'));
-    scard.appendChild(el('p', 'note', 'SPEC を置くフォルダを、作業フォルダの中から 1 つ選びます。初期値は作業フォルダ自身です。'));
-    var outPick = el('div', 'in-pick one');
-    var outTree = el('div', 'in-tree');
-    outPick.appendChild(outTree);
-    scard.appendChild(outPick);
-    var outPath = document.createElement('input');
-    outPath.type = 'text';
-    outPath.placeholder = '作業フォルダの外に置くときは、パスをここに書く（書くと上の選択より優先）';
-    outPath.value = extraOut;
-    scard.appendChild(outPath);
-    var outSum = el('p', 'note');
-    scard.appendChild(outSum);
-    content.appendChild(scard);
-
     // フォルダの読み直し
     var rf = el('section', 'q in-refresh');
     var rfBtn = el('button', '', 'フォルダを読み直す');
@@ -625,8 +599,8 @@ button.clear { font-size: 12.5px; padding: 1px 10px; color: var(--muted); }
       return s.split(/\r?\n/).map(function (l) { return l.trim().replace(/^"(.*)"$/, '$1'); }).filter(Boolean);
     }
 
-    // ツリー（radio: 保存先用。フォルダをクリックするとラジオも選ぶ）
-    function drawTree(box, tag, getCur, setCur, radio) {
+    // ツリー
+    function drawTree(box, tag, getCur, setCur) {
       var scroll = box.scrollTop;
       box.textContent = '';
       (function walk(n, depth) {
@@ -636,11 +610,6 @@ button.clear { font-size: 12.5px; padding: 1px 10px; color: var(--muted); }
         row.style.paddingLeft = (6 + depth * 14) + 'px';
         var has = n.dirs.length > 0;
         row.appendChild(el('span', 'in-tw', has ? (open[n.path] ? '▼' : '▶') : ''));
-        if (radio) {
-          var r = document.createElement('input');
-          r.type = 'radio'; r.name = 'out'; r.checked = getCur() === n.path; r.tabIndex = -1;
-          row.appendChild(r);
-        }
         row.appendChild(document.createTextNode(depth === 0 ? n.name + '（作業フォルダ）' : n.name));
         var pick = function () {
           if (has) open[n.path] = !open[n.path];
@@ -736,8 +705,7 @@ button.clear { font-size: 12.5px; padding: 1px 10px; color: var(--muted); }
         kind: kind,
         request: req.value.trim(),
         requestFile: lines(reqPath.value)[0] || reqSel.file,
-        paths: inSel.picked.concat(lines(paths.value)),
-        dest: lines(outPath.value)[0] || outSel.sel
+        paths: inSel.picked.concat(lines(paths.value))
       };
     }
     function syncKind() {
@@ -747,22 +715,20 @@ button.clear { font-size: 12.5px; padding: 1px 10px; color: var(--muted); }
     function draw() {
       var ae = document.activeElement;
       var fk = ae && ae.dataset ? ae.dataset.fk : '';
-      drawTree(reqTree, 'req', function () { return reqSel.cur; }, function (p) { reqSel.cur = p; }, false);
+      drawTree(reqTree, 'req', function () { return reqSel.cur; }, function (p) { reqSel.cur = p; });
       drawFiles(reqFiles, 'req', reqSel.cur, false);
-      drawTree(inTree, 'in', function () { return inSel.cur; }, function (p) { inSel.cur = p; }, false);
+      drawTree(inTree, 'in', function () { return inSel.cur; }, function (p) { inSel.cur = p; });
       drawFiles(inFiles, 'in', inSel.cur, true);
-      drawTree(outTree, 'out', function () { return outSel.sel; }, function (p) { outSel.sel = p; }, true);
       drawChosen();
       var it = current();
       reqSum.textContent = '依頼文のファイル: ' + (it.requestFile || 'なし');
-      outSum.textContent = '保存先: ' + it.dest;
       if (fk) {
         var again = content.querySelector('[data-fk="' + fk.replace(/(["\\])/g, '\\$1') + '"]');
         if (again) again.focus();
       }
     }
     paths.addEventListener('input', drawChosen);
-    [reqPath, outPath].forEach(function (i) { i.addEventListener('input', draw); });
+    reqPath.addEventListener('input', draw);
     rfBtn.addEventListener('click', function () {
       window.__answersMd = intakeMarkdown(current(), true);
       window.__submitted = true;
