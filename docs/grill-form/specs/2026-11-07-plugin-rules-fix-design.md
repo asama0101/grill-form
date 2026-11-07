@@ -1,6 +1,6 @@
 ---
-status: 未対応
-plan: （未作成）
+status: 完了
+plan: docs/grill-form/plans/2026-11-07-plugin-rules-fix.md
 ---
 
 # plugin-rules.md 準拠の差異を直す SPEC
