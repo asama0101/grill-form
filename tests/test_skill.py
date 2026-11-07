@@ -303,7 +303,6 @@ README_SECTIONS = [
     "使い方",
     "設定",
     "困ったとき",
-    "開発者向け",
     "ライセンス・連絡先",
 ]
 
@@ -327,3 +326,14 @@ def test_READMEの章は規則の順番に並ぶ():
 def test_READMEは未検証の明記を本文に書かない():
     text = (ROOT / "README.md").read_text(encoding="utf-8")
     assert "未検証" not in text
+
+
+def test_READMEに開発者向けの案内がない():
+    text = (ROOT / "README.md").read_text(encoding="utf-8")
+    assert "development.md" not in text
+    assert "## 開発者向け" not in text
+
+
+def test_READMEにscriptsの置き場が書かれている():
+    text = (ROOT / "README.md").read_text(encoding="utf-8")
+    assert "plugins/grill-form/scripts/" in text
