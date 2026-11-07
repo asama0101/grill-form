@@ -1,5 +1,5 @@
 ---
-status: 未対応
+status: 完了
 spec: docs/grill-form/specs/2026-11-07-plugin-rules-fix-design.md
 ---
 
