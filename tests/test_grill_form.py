@@ -557,7 +557,7 @@ def test_空白と日本語を含むパスで実コマンドのinitとrenderが�
     intake.write_text(json.dumps({"request": "依頼 本文"}), encoding="utf-8")
 
     def call(*args):
-        return subprocess.run(
+        return subprocess.run(  # noqa: S603 自分のスクリプトを固定の引数で起動する
             [sys.executable, str(script), *args],
             cwd=work,
             env=env,
