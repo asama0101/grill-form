@@ -2,6 +2,8 @@
 
 import datetime
 import json
+import os
+import subprocess
 import sys
 import tempfile
 from pathlib import Path
@@ -537,3 +539,43 @@ def test_ツリーの切り捨て通知はフォルダだけに限らない文�
         text.count("件数が多いため一部だけ表示しています。パス欄を使ってください。")
         == 2
     )
+
+
+def test_空白と日本語を含むパスで実コマンドのinitとrenderが通る(tmp_path):
+    script = ROOT / "plugins" / "grill-form" / "scripts" / "grill_form.py"
+    work = tmp_path / "作業 フォルダ"
+    work.mkdir()
+    os_temp = tmp_path / "一時 temp"
+    os_temp.mkdir()
+    env = {
+        **os.environ,
+        "TEMP": str(os_temp),
+        "TMP": str(os_temp),
+        "PYTHONUTF8": "1",
+    }
+    intake = work / "入力 intake.json"
+    intake.write_text(json.dumps({"request": "依頼 本文"}), encoding="utf-8")
+
+    def call(*args):
+        return subprocess.run(
+            [sys.executable, str(script), *args],
+            cwd=work,
+            env=env,
+            capture_output=True,
+            text=True,
+            encoding="utf-8",
+            check=False,
+        )
+
+    init = call("init", "--theme", "demo")
+    assert init.returncode == 0, init.stderr
+    session = Path(init.stdout.strip())
+    assert session.is_dir()
+    assert os_temp.resolve() in session.resolve().parents
+
+    render = call(
+        "render", "--session-dir", str(session), "--intake", "--input", str(intake)
+    )
+    assert render.returncode == 0, render.stderr
+    html = Path(render.stdout.strip()).read_text(encoding="utf-8")
+    assert intake_data(html)["request"] == "依頼 本文"

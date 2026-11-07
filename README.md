@@ -121,6 +121,7 @@ Claude Code で、次のように頼みます。
 設定ファイルはありません。
 
 - **Playwright MCP**: ブラウザを変えるときは、導入方法の手順 3 のコマンドに `--browser chrome` などを足します。
+- **構成**: コードと資源は `plugins/grill-form/scripts/` にあります（フォーム生成と作業フォルダの走査のスクリプト、フォームのテンプレート）。
 
 ## 困ったとき
 
@@ -162,10 +163,6 @@ Claude Code で、次のように頼みます。
 
 **`python` コマンドが見つからない**
 - `python3` に読み替えます。Claude は、自動で読み替えます。
-
-## 開発者向け
-
-仕組み、テスト、ローカルでの試し方は [docs/development.md](docs/development.md) にあります。
 
 ## ライセンス・連絡先
 
